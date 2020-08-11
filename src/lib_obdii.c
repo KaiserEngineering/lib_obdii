@@ -475,7 +475,7 @@ static void clear_obdii_packets( POBDII_PACKET_MANAGER dev )
 
     for( uint8_t index = 0; index < OBDII_MAX_FRAMES; index++)
     {
-        memset(dev->frame[index].buf, 0, OBDII_DLC);
+        memset(dev->frame[index].buf, 0x55, OBDII_DLC);
     }
 }
 
