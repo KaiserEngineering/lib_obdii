@@ -347,13 +347,9 @@ static OBDII_STATUS obdii_generate_PID_Request( POBDII_PACKET_MANAGER dev )
     uint8_t frame     = 0;
 
     /*************************************************************************
-     * Parse through the PID array and determine the length of each PID.
-     * Populate the PID length in each typedef.
+     * Add a byte for each PID being requested.
      *************************************************************************/
-    for( uint8_t i = 0; i < dev->num_pids; i++ )
-    {
-        num_bytes += (1U + ((dev->stream[i]->pid >> 8) || 0));
-    }
+    num_bytes += dev->num_pids;
 
     /*************************************************************************
      * Parse through each packet and initialize it to the determined header,
