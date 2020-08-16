@@ -12,6 +12,8 @@
 
 #include <lib_obdii.h>
 
+#define MODE_NOT_CONFIGURED 0xAA
+
 static void next_byte( uint8_t *frame, uint8_t *cur_byte );
 static OBDII_STATUS obdii_generate_PID_Request( POBDII_PACKET_MANAGER dev );
 static void clear_obdii_packets( POBDII_PACKET_MANAGER dev );
@@ -96,14 +98,18 @@ OBDII_PACKET_MANAGER_STATUS OBDII_Service( POBDII_PACKET_MANAGER dev )
         else
         {
             /* The last message was received, send the next packet */
-            if( dev->init.transmit( dev->frame[dev->current_frame].buf , OBDII_DLC ) == 0 )
+            if( dev->init.transmit( dev->msg[dev->current_msg].frame[dev->msg[dev->current_msg].current_frame].buf , OBDII_DLC ) == 0 )
                 dev->diagnostic.tx_failure++;
 
             /* Indicate successful transmission */
             dev->status_flags |= OBDII_PENDING_RESPONSE;
 
             /* Increment the frame */
-            dev->current_frame = (dev->current_frame + 1) % dev->num_frames;
+            dev->msg[dev->current_msg].current_frame = (dev->msg[dev->current_msg].current_frame + 1) % dev->msg[dev->current_msg].num_frames;
+
+            /* If we are on frame 0, we know that a full message has been sent. On to the next message */
+            if( dev->msg[dev->current_msg].current_frame == 0 )
+            	dev->current_msg = ( dev->current_msg + 1 ) % dev->num_msgs;
 
             /* Refresh the timeout */
             refresh_timeout(dev);
@@ -341,82 +347,103 @@ static OBDII_STATUS obdii_generate_PID_Request( POBDII_PACKET_MANAGER dev )
         return OBDII_PID_REQ_EMPTY;
     }
 
-    uint8_t num_bytes = 1; //+1 for service
-    uint8_t pid_count = 0;
-    uint8_t cur_byte  = 0;
-    uint8_t frame     = 0;
-
-    /*************************************************************************
-     * Parse through the PID array and determine the length of each PID.
-     * Populate the PID length in each typedef.
-     *************************************************************************/
-    for( uint8_t i = 0; i < dev->num_pids; i++ )
-    {
-        num_bytes += (1U + ((dev->stream[i]->pid >> 8) || 0));
-    }
-
     /*************************************************************************
      * Parse through each packet and initialize it to the determined header,
      * CAN bus mode and fill the packet buffer with 0x00.
      *************************************************************************/
     clear_obdii_packets(dev);
 
-    /*************************************************************************
-     * Determine if this will be a single frame request or multiframe
-     * request. This is directly related to the number of bytes in the packet
-     * and the size of the buffer.
-     *************************************************************************/
-    if( num_bytes < (OBDII_DLC - 1U) ) // -1 for length byte
+    for( uint8_t i = 0; i < dev->num_pids; i++ )
     {
-        /*************** Length ***************/
-        dev->frame[0].buf[cur_byte++] = num_bytes;
+    	for( uint8_t j = 0; j < OBDII_MAX_MSGS; j++ )
+    	{
+    		/* If a match is found there is no need to increment */
+    		if( dev->stream[i]->mode == dev->msg[j].mode )
+    			break;
 
-        /**************** Mode ****************/
-        dev->frame[0].buf[cur_byte++] = OBDII_CURRENT_DATA;
-    }
-    else  // Multi frame
-    {
-        /**************** Frame ****************/
-        dev->frame[0].buf[cur_byte++] = (frame | 0x10);
-
-        /*************** Length ***************/
-        dev->frame[0].buf[cur_byte++] = num_bytes;
-
-        /**************** Mode ****************/
-        dev->frame[0].buf[cur_byte++] = OBDII_CURRENT_DATA;
+    		/* No match found, add the mode to the next message struct */
+    		if( j == OBDII_MAX_MSGS - 1 )
+        		dev->msg[dev->num_msgs++].mode = dev->stream[i]->mode;
+    	}
     }
 
-    /*************************************************************************
-     * Iterate through every single PID and fill the buffer.
-     *************************************************************************/
-    for( pid_count = 0; pid_count < dev->num_pids; pid_count++ )
+    for(uint8_t msg = 0; msg < dev->num_msgs; msg++ )
     {
+        uint8_t num_bytes = 1; //+1 for service
+        uint8_t pid_count = 0;
+        uint8_t cur_byte  = 0;
+        uint8_t frame     = 0;
 
-        if( (dev->stream[pid_count]->pid >> 8) || 0 )
-        {
-            /**************** PID byte 2 ****************/
-            dev->frame[frame].buf[cur_byte] = (dev->stream[pid_count]->pid >> 8) & 0xFF;
+		/*************************************************************************
+		 * Parse through the PID array and determine the length of each PID.
+		 * Populate the PID length in each typedef.
+		 *************************************************************************/
+		for( uint8_t i = 0; i < dev->num_pids; i++ )
+		{
+			if( dev->msg[msg].mode == dev->stream[i]->mode )
+				num_bytes += (1U + ((dev->stream[i]->pid >> 8) || 0));
+		}
 
-            /************* Increment Buffer *************/
-            next_byte( &frame, &cur_byte );
-        }
+		/*************************************************************************
+		 * Determine if this will be a single frame request or multiframe
+		 * request. This is directly related to the number of bytes in the packet
+		 * and the size of the buffer.
+		 *************************************************************************/
+		if( num_bytes < (OBDII_DLC - 1U) ) // -1 for length byte
+		{
+			/*************** Length ***************/
+			dev->msg[msg].frame[0].buf[cur_byte++] = num_bytes;
 
-        if( dev->stream[pid_count]->pid & 0xFF )
-        {
-            /**************** PID byte 1 ****************/
-            dev->frame[frame].buf[cur_byte] = dev->stream[pid_count]->pid & 0xFF;
+			/**************** Mode ****************/
+			dev->msg[msg].frame[0].buf[cur_byte++] = dev->msg[msg].mode;
+		}
+		else  // Multi frame
+		{
+			/**************** Frame ****************/
+			dev->msg[msg].frame[0].buf[cur_byte++] = (frame | 0x10);
 
-            /************* Increment Buffer *************/
-            next_byte( &frame, &cur_byte );
-        }
+			/*************** Length ***************/
+			dev->msg[msg].frame[0].buf[cur_byte++] = num_bytes;
 
-        if ( (frame > 0) & (cur_byte == 1) )
-        {
-            dev->frame[frame].buf[0] = frame | 0x20;
-        }
+			/**************** Mode ****************/
+			dev->msg[msg].frame[0].buf[cur_byte++] = dev->msg[msg].mode;
+		}
+
+		/*************************************************************************
+		 * Iterate through every single PID and fill the buffer.
+		 *************************************************************************/
+		for( pid_count = 0; pid_count < dev->num_pids; pid_count++ )
+		{
+			if( dev->msg[msg].mode == dev->stream[pid_count]->mode )
+			{
+
+				if( (dev->stream[pid_count]->pid >> 8) || 0 )
+				{
+					/**************** PID byte 2 ****************/
+					dev->msg[msg].frame[frame].buf[cur_byte] = (dev->stream[pid_count]->pid >> 8) & 0xFF;
+
+					/************* Increment Buffer *************/
+					next_byte( &frame, &cur_byte );
+				}
+
+				if( dev->stream[pid_count]->pid & 0xFF )
+				{
+					/**************** PID byte 1 ****************/
+					dev->msg[msg].frame[frame].buf[cur_byte] = dev->stream[pid_count]->pid & 0xFF;
+
+					/************* Increment Buffer *************/
+					next_byte( &frame, &cur_byte );
+				}
+
+				if ( (frame > 0) & (cur_byte == 1) )
+				{
+					dev->msg[msg].frame[frame].buf[0] = frame | 0x20;
+				}
+			}
+
+			dev->msg[msg].num_frames = frame + 1;
+		}
     }
-
-    dev->num_frames = frame + 1;
 
     return OBDII_OK;
 }
@@ -469,14 +496,19 @@ void OBDII_tick( void )
 
 static void clear_obdii_packets( POBDII_PACKET_MANAGER dev )
 {
-    dev->current_frame = 0;
+	for( uint8_t i = 0; i < OBDII_MAX_MSGS; i++)
+	{
+		dev->msg[i].mode = MODE_NOT_CONFIGURED;
 
-    dev->num_frames = 0;
+		dev->msg[i].current_frame = 0;
 
-    for( uint8_t index = 0; index < OBDII_MAX_FRAMES; index++)
-    {
-        memset(dev->frame[index].buf, 0x55, OBDII_DLC);
-    }
+		dev->msg[i].num_frames = 0;
+
+		for( uint8_t index = 0; index < OBDII_MAX_FRAMES; index++)
+		{
+			memset(dev->msg[i].frame[index].buf, 0x55, OBDII_DLC);
+		}
+	}
 }
 
 static void flush_obdii_rx_buf( POBDII_PACKET_MANAGER dev )

@@ -18,6 +18,7 @@
 #define OBDII_MAX_FRAMES 0x04
 #define OBDII_DLC        0x08
 #define OBDII_MAX_PIDS   25
+#define OBDII_MAX_MSGS   2
 #define OBDII_RX_BUF_SIZE OBDII_MAX_FRAMES * OBDII_DLC
 
 #define ISO_15765_2_FRAME_TYPE_MASK            0xF0
@@ -127,6 +128,18 @@ typedef struct _obdii_frame {
 
 } OBDII_FRAME, *POBDII_FRAME;
 
+typedef struct _obdii_msg {
+
+	uint8_t mode;
+
+	OBDII_FRAME frame[OBDII_MAX_FRAMES];
+
+    uint8_t num_frames;
+
+    uint8_t current_frame;
+
+} OBDII_MSG, *POBDII_MSG;
+
 typedef struct _obdii_init {
 
     uint32_t timeout;
@@ -143,6 +156,12 @@ typedef struct _obdii_init {
 
 typedef struct _obdii_packet_manager {
 
+    uint8_t num_msgs;
+
+    uint8_t current_msg;
+
+	OBDII_MSG msg[OBDII_MAX_MSGS];
+
     uint32_t obdii_time;
 
     uint16_t status_flags;
@@ -151,13 +170,7 @@ typedef struct _obdii_packet_manager {
         #define OBDII_RESPONSE_RECEIVED 0x4  /* A sent message received a response */
     OBDII_INIT init;
 
-    OBDII_FRAME frame[OBDII_MAX_FRAMES];
-
     uint8_t num_pids;
-
-    uint8_t num_frames;
-
-    uint8_t current_frame;
 
     PTR_PID_DATA stream[OBDII_MAX_PIDS];
 
