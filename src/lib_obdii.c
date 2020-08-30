@@ -29,6 +29,10 @@ static uint8_t flow_control_frame[OBDII_DLC] = {0x30, 0x00, 0x00, 0x00, 0x00, 0x
 
 uint32_t obdii_tick = 0;
 
+/* Returns the number of bytes a PID request has, if the first byte is 0 *
+ * then the pid is a single byte, otherwise it is 2 bytes.               */
+static uint8_t get_num_bytes( uint16_t pid ) { return ( 1U + ( (pid >> 8) || 0) ); }
+
 void OBDII_Initialize( POBDII_PACKET_MANAGER dev )
 {
     dev->status_flags = 0;
@@ -107,10 +111,6 @@ OBDII_PACKET_MANAGER_STATUS OBDII_Service( POBDII_PACKET_MANAGER dev )
             /* Increment the frame */
             dev->msg[dev->current_msg].current_frame = (dev->msg[dev->current_msg].current_frame + 1) % dev->msg[dev->current_msg].num_frames;
 
-            /* If we are on frame 0, we know that a full message has been sent. On to the next message */
-            if( dev->msg[dev->current_msg].current_frame == 0 )
-            	dev->current_msg = ( dev->current_msg + 1 ) % dev->num_msgs;
-
             /* Refresh the timeout */
             refresh_timeout(dev);
 
@@ -119,6 +119,10 @@ OBDII_PACKET_MANAGER_STATUS OBDII_Service( POBDII_PACKET_MANAGER dev )
                 dev->status_flags &= ~OBDII_RESPONSE_RECEIVED;
 
                 OBDII_PROCESS_STATUS status = OBDII_Process_Packet(dev);
+
+                /* If we are on frame 0, we know that a full message has been sent. On to the next message */
+                if( dev->msg[dev->current_msg].current_frame == 0 )
+                	dev->current_msg = ( dev->current_msg + 1 ) % dev->num_msgs;
 
                 if( status == OBDII_PACKET_PROCESS_SUCCESS )
                 {
@@ -178,6 +182,9 @@ OBDII_STATUS OBDII_Add_Packet( POBDII_PACKET_MANAGER dev, uint16_t arbitration_i
 
             /* Number of bytes in the CAN packet that is not data */
             num_supporting_bytes = CAN_SINGLE_FRAME_SUPPORTING_BYTES;
+
+            /* Save the mode byte */
+            dev->rx_buf[ dev->rx_byte_count++ ] = packet_data[CAN_SINGLE_FRAME_MODE_POS];
         }
 
         /* Check if packet is first frame */
@@ -194,6 +201,9 @@ OBDII_STATUS OBDII_Add_Packet( POBDII_PACKET_MANAGER dev, uint16_t arbitration_i
 
             /* Number of bytes in the CAN packet that is not data */
             num_supporting_bytes = CAN_FIRST_FRAME_SUPPORTING_BYTES;
+
+            /* Save the mode byte */
+            dev->rx_buf[ dev->rx_byte_count++ ] = packet_data[MULTI_FRAME_MODE_POS];
         }
 
         /* Check if packet is consecutive frame */
@@ -258,32 +268,48 @@ static OBDII_PROCESS_STATUS OBDII_Process_Packet( POBDII_PACKET_MANAGER dev )
 
     refresh_timeout( dev );
 
+    uint8_t mode = dev->rx_buf[curByte++] - 0x40;
+
     for( uint8_t pid_num = 0; pid_num < dev->num_pids; pid_num++ )
     {
-        if( lookup_payload_length( dev->stream[pid_num]->pid ) > 0 )
-        {
-            if( dev->rx_buf[curByte] == dev->stream[pid_num]->pid )
-            {
-                uint8_t tmpDataBuf[4] = {0, 0, 0, 0};
+    	if( dev->stream[pid_num]->mode == mode )
+    	{
+			if( lookup_payload_length( dev->stream[pid_num]->pid ) > 0 )
+			{
+				uint16_t pid = 0;
+				uint8_t pid_len = 0;
 
-                curByte++;
+				pid_len = get_num_bytes( dev->stream[pid_num]->pid );
 
-                /* Save the PID's payload ( 1 to 4 bytes ) */
-                for ( uint8_t data = 0; data < lookup_payload_length( dev->stream[pid_num]->pid ) ; data++ )
-                {
-                    tmpDataBuf[data] = dev->rx_buf[curByte];
+				if( pid_len == 1 ) {
+					pid = dev->rx_buf[curByte++];
+				}
+				else if ( pid_len == 2 ) {
+					pid = dev->rx_buf[curByte++];
+					pid = ( pid << 8 ) | ( dev->rx_buf[curByte++] & 0xFF );
+				}
 
-                    curByte++;
-                }
+				if( pid == dev->stream[pid_num]->pid )
+				{
+					uint8_t tmpDataBuf[4] = {0, 0, 0, 0};
 
-                dev->stream[pid_num]->pid_value = get_pid_value( dev->stream[pid_num]->pid, tmpDataBuf );
+					/* Save the PID's payload ( 1 to 4 bytes ) */
+					for ( uint8_t data = 0; data < lookup_payload_length( dev->stream[pid_num]->pid ) ; data++ )
+					{
+						tmpDataBuf[data] = dev->rx_buf[curByte];
 
-            } else {
-                return OBDII_CAN_PCKT_MISALIGNED;
-            }
-        } else {
-            return OBDII_PID_NOT_SUPPORTED;
-        }
+						curByte++;
+					}
+
+					dev->stream[pid_num]->pid_value = get_pid_value( dev->stream[pid_num]->pid, tmpDataBuf );
+
+				} else {
+					return OBDII_CAN_PCKT_MISALIGNED;
+				}
+			} else {
+				return OBDII_PID_NOT_SUPPORTED;
+			}
+    	}
     }
 
     refresh_timeout(dev);
@@ -330,6 +356,12 @@ static uint8_t lookup_payload_length( uint16_t PID )
 
         case MODE1_INTAKE_AIR_TEMPERATURE_SENSOR:
             return MODE1_INTAKE_AIR_TEMPERATURE_SENSOR_LEN;
+
+        case MODE22_INTAKE_AIR_TEMPERATURE:
+        	return MODE22_INTAKE_AIR_TEMPERATURE_LEN;
+
+        case MODE22_CHARGE_AIR_TEMPERATURE:
+        	return MODE22_CHARGE_AIR_TEMPERATURE_LEN;
 
         default:
             return 0;
@@ -460,6 +492,7 @@ static float get_pid_value ( uint16_t pid, uint8_t data[] )
         case MODE1_INTAKE_AIR_TEMPERATURE:
         case MODE1_ENGINE_COOLANT_TEMPERATURE:
         case MODE1_AMBIENT_AIR_TEMPERATURE:
+        case MODE22_INTAKE_AIR_TEMPERATURE:
             return ((float)data[A] - (float)40);
             break;
 
@@ -476,6 +509,9 @@ static float get_pid_value ( uint16_t pid, uint8_t data[] )
         case MODE1_MAF_AIR_FLOW_RATE:
             return (((float)256 * (float)data[A] ) + (float)data[B] ) / (float)100;
             break;
+
+        case MODE22_CHARGE_AIR_TEMPERATURE:
+        	return (((float)256 * (float)data[A] ) + (float)data[B] ) / (float)64;
 
         default:
             return -1;
