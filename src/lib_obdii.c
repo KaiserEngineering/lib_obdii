@@ -354,9 +354,6 @@ static uint8_t lookup_payload_length( uint16_t PID )
         case MODE1_AMBIENT_AIR_TEMPERATURE:
             return MODE1_AMBIENT_AIR_TEMPERATURE_LEN;
 
-        case MODE1_INTAKE_AIR_TEMPERATURE_SENSOR:
-            return MODE1_INTAKE_AIR_TEMPERATURE_SENSOR_LEN;
-
         case MODE22_INTAKE_AIR_TEMPERATURE:
         	return MODE22_INTAKE_AIR_TEMPERATURE_LEN;
 
