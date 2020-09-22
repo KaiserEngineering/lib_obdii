@@ -122,7 +122,7 @@ OBDII_PACKET_MANAGER_STATUS OBDII_Service( POBDII_PACKET_MANAGER dev )
 
                 /* If we are on frame 0, we know that a full message has been sent. On to the next message */
                 if( dev->msg[dev->current_msg].current_frame == 0 )
-                	dev->current_msg = ( dev->current_msg + 1 ) % dev->num_msgs;
+                    dev->current_msg = ( dev->current_msg + 1 ) % dev->num_msgs;
 
                 if( status == OBDII_PACKET_PROCESS_SUCCESS )
                 {
@@ -272,44 +272,44 @@ static OBDII_PROCESS_STATUS OBDII_Process_Packet( POBDII_PACKET_MANAGER dev )
 
     for( uint8_t pid_num = 0; pid_num < dev->num_pids; pid_num++ )
     {
-    	if( dev->stream[pid_num]->mode == mode )
-    	{
-			if( lookup_payload_length( dev->stream[pid_num]->mode, dev->stream[pid_num]->pid ) > 0 )
-			{
-				uint16_t pid = 0;
-				uint8_t pid_len = 0;
+        if( dev->stream[pid_num]->mode == mode )
+        {
+            if( lookup_payload_length( dev->stream[pid_num]->mode, dev->stream[pid_num]->pid ) > 0 )
+            {
+                uint16_t pid = 0;
+                uint8_t pid_len = 0;
 
-				pid_len = get_num_bytes( dev->stream[pid_num]->pid );
+                pid_len = get_num_bytes( dev->stream[pid_num]->pid );
 
-				if( pid_len == 1 ) {
-					pid = dev->rx_buf[curByte++];
-				}
-				else if ( pid_len == 2 ) {
-					pid = dev->rx_buf[curByte++];
-					pid = ( pid << 8 ) | ( dev->rx_buf[curByte++] & 0xFF );
-				}
+                if( pid_len == 1 ) {
+                    pid = dev->rx_buf[curByte++];
+                }
+                else if ( pid_len == 2 ) {
+                    pid = dev->rx_buf[curByte++];
+                    pid = ( pid << 8 ) | ( dev->rx_buf[curByte++] & 0xFF );
+                }
 
-				if( pid == dev->stream[pid_num]->pid )
-				{
-					uint8_t tmpDataBuf[4] = {0, 0, 0, 0};
+                if( pid == dev->stream[pid_num]->pid )
+                {
+                    uint8_t tmpDataBuf[4] = {0, 0, 0, 0};
 
-					/* Save the PID's payload ( 1 to 4 bytes ) */
-					for ( uint8_t data = 0; data < lookup_payload_length( dev->stream[pid_num]->mode, dev->stream[pid_num]->pid ) ; data++ )
-					{
-						tmpDataBuf[data] = dev->rx_buf[curByte];
+                    /* Save the PID's payload ( 1 to 4 bytes ) */
+                    for ( uint8_t data = 0; data < lookup_payload_length( dev->stream[pid_num]->mode, dev->stream[pid_num]->pid ) ; data++ )
+                    {
+                        tmpDataBuf[data] = dev->rx_buf[curByte];
 
-						curByte++;
-					}
+                        curByte++;
+                    }
 
-					dev->stream[pid_num]->pid_value = get_pid_value( dev->stream[pid_num]->mode, dev->stream[pid_num]->pid, tmpDataBuf );
+                    dev->stream[pid_num]->pid_value = get_pid_value( dev->stream[pid_num]->mode, dev->stream[pid_num]->pid, tmpDataBuf );
 
-				} else {
-					return OBDII_CAN_PCKT_MISALIGNED;
-				}
-			} else {
-				return OBDII_PID_NOT_SUPPORTED;
-			}
-    	}
+                } else {
+                    return OBDII_CAN_PCKT_MISALIGNED;
+                }
+            } else {
+                return OBDII_PID_NOT_SUPPORTED;
+            }
+        }
     }
 
     refresh_timeout(dev);
@@ -319,66 +319,66 @@ static OBDII_PROCESS_STATUS OBDII_Process_Packet( POBDII_PACKET_MANAGER dev )
 
 static uint8_t lookup_payload_length( uint8_t mode, uint16_t PID )
 {
-	switch ( mode )
-	{
-		case MODE1:
-			switch ( PID )
-			{
-				case MODE1_CALCULATED_ENGINE_LOAD_VALUE:
-					return MODE1_CALCULATED_ENGINE_LOAD_VALUE_LEN;
+    switch ( mode )
+    {
+        case MODE1:
+            switch ( PID )
+            {
+                case MODE1_CALCULATED_ENGINE_LOAD_VALUE:
+                    return MODE1_CALCULATED_ENGINE_LOAD_VALUE_LEN;
 
-				case MODE1_ENGINE_COOLANT_TEMPERATURE:
-					return MODE1_ENGINE_COOLANT_TEMPERATURE_LEN;
+                case MODE1_ENGINE_COOLANT_TEMPERATURE:
+                    return MODE1_ENGINE_COOLANT_TEMPERATURE_LEN;
 
-				case MODE1_ENGINE_RPM:
-					return MODE1_ENGINE_RPM_LEN;
+                case MODE1_ENGINE_RPM:
+                    return MODE1_ENGINE_RPM_LEN;
 
-				case MODE1_INTAKE_MANIFOLD_ABSOLUTE_PRESSURE:
-					return MODE1_INTAKE_MANIFOLD_ABSOLUTE_PRESSURE_LEN;
+                case MODE1_INTAKE_MANIFOLD_ABSOLUTE_PRESSURE:
+                    return MODE1_INTAKE_MANIFOLD_ABSOLUTE_PRESSURE_LEN;
 
-				case MODE1_VEHICLE_SPEED:
-					return MODE1_VEHICLE_SPEED_LEN;
+                case MODE1_VEHICLE_SPEED:
+                    return MODE1_VEHICLE_SPEED_LEN;
 
-				case MODE1_INTAKE_AIR_TEMPERATURE:
-					return MODE1_INTAKE_AIR_TEMPERATURE_LEN;
+                case MODE1_INTAKE_AIR_TEMPERATURE:
+                    return MODE1_INTAKE_AIR_TEMPERATURE_LEN;
 
-				case MODE1_MAF_AIR_FLOW_RATE:
-					return MODE1_MAF_AIR_FLOW_RATE_LEN;
+                case MODE1_MAF_AIR_FLOW_RATE:
+                    return MODE1_MAF_AIR_FLOW_RATE_LEN;
 
-				case MODE1_THROTTLE_POSITION:
-					return MODE1_THROTTLE_POSITION_LEN;
+                case MODE1_THROTTLE_POSITION:
+                    return MODE1_THROTTLE_POSITION_LEN;
 
-				case MODE1_BAROMETRIC_PRESSURE:
-					return MODE1_BAROMETRIC_PRESSURE_LEN;
+                case MODE1_BAROMETRIC_PRESSURE:
+                    return MODE1_BAROMETRIC_PRESSURE_LEN;
 
-				case MODE1_ABSOLUTE_LOAD_VALUE:
-					return MODE1_ABSOLUTE_LOAD_VALUE_LEN;
+                case MODE1_ABSOLUTE_LOAD_VALUE:
+                    return MODE1_ABSOLUTE_LOAD_VALUE_LEN;
 
-				case MODE1_AMBIENT_AIR_TEMPERATURE:
-					return MODE1_AMBIENT_AIR_TEMPERATURE_LEN;
+                case MODE1_AMBIENT_AIR_TEMPERATURE:
+                    return MODE1_AMBIENT_AIR_TEMPERATURE_LEN;
 
-				default:
-					return 0x00;
-			}
-			break;
+                default:
+                    return 0x00;
+            }
+            break;
 
-		case MODE22:
-			switch ( PID )
-			{
-				case MODE22_INTAKE_AIR_TEMPERATURE:
-					return MODE22_INTAKE_AIR_TEMPERATURE_LEN;
+        case MODE22:
+            switch ( PID )
+            {
+                case MODE22_INTAKE_AIR_TEMPERATURE:
+                    return MODE22_INTAKE_AIR_TEMPERATURE_LEN;
 
-				case MODE22_CHARGE_AIR_TEMPERATURE:
-					return MODE22_CHARGE_AIR_TEMPERATURE_LEN;
+                case MODE22_CHARGE_AIR_TEMPERATURE:
+                    return MODE22_CHARGE_AIR_TEMPERATURE_LEN;
 
-				default:
-					return 0;
-			}
-			break;
+                default:
+                    return 0;
+            }
+            break;
 
-		default:
-			return 0;
-		}
+        default:
+            return 0;
+        }
 }
 
 
@@ -400,16 +400,16 @@ static OBDII_STATUS obdii_generate_PID_Request( POBDII_PACKET_MANAGER dev )
 
     for( uint8_t i = 0; i < dev->num_pids; i++ )
     {
-    	for( uint8_t j = 0; j < OBDII_MAX_MSGS; j++ )
-    	{
-    		/* If a match is found there is no need to increment */
-    		if( dev->stream[i]->mode == dev->msg[j].mode )
-    			break;
+        for( uint8_t j = 0; j < OBDII_MAX_MSGS; j++ )
+        {
+            /* If a match is found there is no need to increment */
+            if( dev->stream[i]->mode == dev->msg[j].mode )
+                break;
 
-    		/* No match found, add the mode to the next message struct */
-    		if( j == OBDII_MAX_MSGS - 1 )
-        		dev->msg[dev->num_msgs++].mode = dev->stream[i]->mode;
-    	}
+            /* No match found, add the mode to the next message struct */
+            if( j == OBDII_MAX_MSGS - 1 )
+                dev->msg[dev->num_msgs++].mode = dev->stream[i]->mode;
+        }
     }
 
     for(uint8_t msg = 0; msg < dev->num_msgs; msg++ )
@@ -419,75 +419,75 @@ static OBDII_STATUS obdii_generate_PID_Request( POBDII_PACKET_MANAGER dev )
         uint8_t cur_byte  = 0;
         uint8_t frame     = 0;
 
-		/*************************************************************************
-		 * Parse through the PID array and determine the length of each PID.
-		 * Populate the PID length in each typedef.
-		 *************************************************************************/
-		for( uint8_t i = 0; i < dev->num_pids; i++ )
-		{
-			if( dev->msg[msg].mode == dev->stream[i]->mode )
-				num_bytes += (1U + ((dev->stream[i]->pid >> 8) || 0));
-		}
+        /*************************************************************************
+         * Parse through the PID array and determine the length of each PID.
+         * Populate the PID length in each typedef.
+         *************************************************************************/
+        for( uint8_t i = 0; i < dev->num_pids; i++ )
+        {
+            if( dev->msg[msg].mode == dev->stream[i]->mode )
+                num_bytes += (1U + ((dev->stream[i]->pid >> 8) || 0));
+        }
 
-		/*************************************************************************
-		 * Determine if this will be a single frame request or multiframe
-		 * request. This is directly related to the number of bytes in the packet
-		 * and the size of the buffer.
-		 *************************************************************************/
-		if( num_bytes < (OBDII_DLC - 1U) ) // -1 for length byte
-		{
-			/*************** Length ***************/
-			dev->msg[msg].frame[0].buf[cur_byte++] = num_bytes;
+        /*************************************************************************
+         * Determine if this will be a single frame request or multiframe
+         * request. This is directly related to the number of bytes in the packet
+         * and the size of the buffer.
+         *************************************************************************/
+        if( num_bytes < (OBDII_DLC - 1U) ) // -1 for length byte
+        {
+            /*************** Length ***************/
+            dev->msg[msg].frame[0].buf[cur_byte++] = num_bytes;
 
-			/**************** Mode ****************/
-			dev->msg[msg].frame[0].buf[cur_byte++] = dev->msg[msg].mode;
-		}
-		else  // Multi frame
-		{
-			/**************** Frame ****************/
-			dev->msg[msg].frame[0].buf[cur_byte++] = (frame | 0x10);
+            /**************** Mode ****************/
+            dev->msg[msg].frame[0].buf[cur_byte++] = dev->msg[msg].mode;
+        }
+        else  // Multi frame
+        {
+            /**************** Frame ****************/
+            dev->msg[msg].frame[0].buf[cur_byte++] = (frame | 0x10);
 
-			/*************** Length ***************/
-			dev->msg[msg].frame[0].buf[cur_byte++] = num_bytes;
+            /*************** Length ***************/
+            dev->msg[msg].frame[0].buf[cur_byte++] = num_bytes;
 
-			/**************** Mode ****************/
-			dev->msg[msg].frame[0].buf[cur_byte++] = dev->msg[msg].mode;
-		}
+            /**************** Mode ****************/
+            dev->msg[msg].frame[0].buf[cur_byte++] = dev->msg[msg].mode;
+        }
 
-		/*************************************************************************
-		 * Iterate through every single PID and fill the buffer.
-		 *************************************************************************/
-		for( pid_count = 0; pid_count < dev->num_pids; pid_count++ )
-		{
-			if( dev->msg[msg].mode == dev->stream[pid_count]->mode )
-			{
+        /*************************************************************************
+         * Iterate through every single PID and fill the buffer.
+         *************************************************************************/
+        for( pid_count = 0; pid_count < dev->num_pids; pid_count++ )
+        {
+            if( dev->msg[msg].mode == dev->stream[pid_count]->mode )
+            {
 
-				if( (dev->stream[pid_count]->pid >> 8) || 0 )
-				{
-					/**************** PID byte 2 ****************/
-					dev->msg[msg].frame[frame].buf[cur_byte] = (dev->stream[pid_count]->pid >> 8) & 0xFF;
+                if( (dev->stream[pid_count]->pid >> 8) || 0 )
+                {
+                    /**************** PID byte 2 ****************/
+                    dev->msg[msg].frame[frame].buf[cur_byte] = (dev->stream[pid_count]->pid >> 8) & 0xFF;
 
-					/************* Increment Buffer *************/
-					next_byte( &frame, &cur_byte );
-				}
+                    /************* Increment Buffer *************/
+                    next_byte( &frame, &cur_byte );
+                }
 
-				if( dev->stream[pid_count]->pid & 0xFF )
-				{
-					/**************** PID byte 1 ****************/
-					dev->msg[msg].frame[frame].buf[cur_byte] = dev->stream[pid_count]->pid & 0xFF;
+                if( dev->stream[pid_count]->pid & 0xFF )
+                {
+                    /**************** PID byte 1 ****************/
+                    dev->msg[msg].frame[frame].buf[cur_byte] = dev->stream[pid_count]->pid & 0xFF;
 
-					/************* Increment Buffer *************/
-					next_byte( &frame, &cur_byte );
-				}
+                    /************* Increment Buffer *************/
+                    next_byte( &frame, &cur_byte );
+                }
 
-				if ( (frame > 0) & (cur_byte == 1) )
-				{
-					dev->msg[msg].frame[frame].buf[0] = frame | 0x20;
-				}
-			}
+                if ( (frame > 0) & (cur_byte == 1) )
+                {
+                    dev->msg[msg].frame[frame].buf[0] = frame | 0x20;
+                }
+            }
 
-			dev->msg[msg].num_frames = frame + 1;
-		}
+            dev->msg[msg].num_frames = frame + 1;
+        }
     }
 
     return OBDII_OK;
@@ -495,59 +495,59 @@ static OBDII_STATUS obdii_generate_PID_Request( POBDII_PACKET_MANAGER dev )
 
 static float get_pid_value( uint8_t mode, uint16_t pid, uint8_t data[] )
 {
-	switch( mode )
-	{
-		case MODE1:
-			switch( pid )
-			{
-				/*    Equation: (A * 100) / 255    */
-				case MODE1_CALCULATED_ENGINE_LOAD_VALUE:
-					return (((float)data[A]) * (float)100) / (float)255;
-					break;
+    switch( mode )
+    {
+        case MODE1:
+            switch( pid )
+            {
+                /*    Equation: (A * 100) / 255    */
+                case MODE1_CALCULATED_ENGINE_LOAD_VALUE:
+                    return (((float)data[A]) * (float)100) / (float)255;
+                    break;
 
-				case MODE1_INTAKE_AIR_TEMPERATURE:
-				case MODE1_ENGINE_COOLANT_TEMPERATURE:
-				case MODE1_AMBIENT_AIR_TEMPERATURE:
-					return ((float)data[A] - (float)40);
-					break;
+                case MODE1_INTAKE_AIR_TEMPERATURE:
+                case MODE1_ENGINE_COOLANT_TEMPERATURE:
+                case MODE1_AMBIENT_AIR_TEMPERATURE:
+                    return ((float)data[A] - (float)40);
+                    break;
 
-				case MODE1_ENGINE_RPM:
-					return (((float)256 * (float)data[A] ) + (float)data[B] ) / (float)4;
-					break;
+                case MODE1_ENGINE_RPM:
+                    return (((float)256 * (float)data[A] ) + (float)data[B] ) / (float)4;
+                    break;
 
-				case MODE1_INTAKE_MANIFOLD_ABSOLUTE_PRESSURE:
-				case MODE1_VEHICLE_SPEED:
-				case MODE1_BAROMETRIC_PRESSURE:
-					return (float)data[A];
-					break;
+                case MODE1_INTAKE_MANIFOLD_ABSOLUTE_PRESSURE:
+                case MODE1_VEHICLE_SPEED:
+                case MODE1_BAROMETRIC_PRESSURE:
+                    return (float)data[A];
+                    break;
 
-				case MODE1_MAF_AIR_FLOW_RATE:
-					return (((float)256 * (float)data[A] ) + (float)data[B] ) / (float)100;
-					break;
+                case MODE1_MAF_AIR_FLOW_RATE:
+                    return (((float)256 * (float)data[A] ) + (float)data[B] ) / (float)100;
+                    break;
 
-				default:
-					return -1;
-					break;
-			}
+                default:
+                    return -1;
+                    break;
+            }
 
-		case MODE22:
-			switch( pid )
-			{
-				case MODE22_CHARGE_AIR_TEMPERATURE:
-					return (((float)256 * (float)data[A] ) + (float)data[B] ) / (float)64;
+        case MODE22:
+            switch( pid )
+            {
+                case MODE22_CHARGE_AIR_TEMPERATURE:
+                    return (((float)256 * (float)data[A] ) + (float)data[B] ) / (float)64;
 
-				case MODE22_INTAKE_AIR_TEMPERATURE:
-					return ((float)data[A] - (float)40);
-					break;
+                case MODE22_INTAKE_AIR_TEMPERATURE:
+                    return ((float)data[A] - (float)40);
+                    break;
 
-				default:
-					return -1;
-					break;
-			}
+                default:
+                    return -1;
+                    break;
+            }
 
-		default:
-			return -1;
-	}
+        default:
+            return -1;
+    }
 }
 
 static void refresh_timeout( POBDII_PACKET_MANAGER dev )
@@ -563,19 +563,19 @@ void OBDII_tick( void )
 
 static void clear_obdii_packets( POBDII_PACKET_MANAGER dev )
 {
-	for( uint8_t i = 0; i < OBDII_MAX_MSGS; i++)
-	{
-		dev->msg[i].mode = MODE_NOT_CONFIGURED;
+    for( uint8_t i = 0; i < OBDII_MAX_MSGS; i++)
+    {
+        dev->msg[i].mode = MODE_NOT_CONFIGURED;
 
-		dev->msg[i].current_frame = 0;
+        dev->msg[i].current_frame = 0;
 
-		dev->msg[i].num_frames = 0;
+        dev->msg[i].num_frames = 0;
 
-		for( uint8_t index = 0; index < OBDII_MAX_FRAMES; index++)
-		{
-			memset(dev->msg[i].frame[index].buf, 0x55, OBDII_DLC);
-		}
-	}
+        for( uint8_t index = 0; index < OBDII_MAX_FRAMES; index++)
+        {
+            memset(dev->msg[i].frame[index].buf, 0x55, OBDII_DLC);
+        }
+    }
 }
 
 static void flush_obdii_rx_buf( POBDII_PACKET_MANAGER dev )
@@ -622,7 +622,7 @@ float OBDII_Get_Value_Byte_PID( POBDII_PACKET_MANAGER dev, uint16_t pid )
     {
         //if( pid == dev->stream.pid[i] )
             //return dev->pid_results[i];
-    	return 0;
+        return 0;
     }
     return 0;
 }
