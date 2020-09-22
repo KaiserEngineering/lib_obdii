@@ -14,6 +14,7 @@
 #include "stdio.h"
 #include "string.h"
 #include "lib_pid.h"
+#include "lib_unit_conversion.h"
 
 #define OBDII_MAX_FRAMES 0x04
 #define OBDII_DLC        0x08

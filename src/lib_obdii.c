@@ -24,6 +24,7 @@ static uint8_t lookup_payload_length( uint8_t mode, uint16_t PID );
 static float get_pid_value( uint8_t mode, uint16_t pid, uint8_t data[] );
 static OBDII_PROCESS_STATUS OBDII_Process_Packet( POBDII_PACKET_MANAGER dev );
 static void clear_pid_entries( POBDII_PACKET_MANAGER dev );
+static PID_UNITS get_pid_base_unit( uint8_t mode, uint16_t PID );
 
 static uint8_t flow_control_frame[OBDII_DLC] = {0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
@@ -303,6 +304,9 @@ static OBDII_PROCESS_STATUS OBDII_Process_Packet( POBDII_PACKET_MANAGER dev )
 
                     dev->stream[pid_num]->pid_value = get_pid_value( dev->stream[pid_num]->mode, dev->stream[pid_num]->pid, tmpDataBuf );
 
+                    if( dev->stream[pid_num]->pid_unit != get_pid_base_unit( dev->stream[pid_num]->mode, dev->stream[pid_num]->pid ) )
+                        dev->stream[pid_num]->pid_value = convert_units( get_pid_base_unit( dev->stream[pid_num]->mode, dev->stream[pid_num]->pid ), dev->stream[pid_num]->pid_unit, dev->stream[pid_num]->pid_value );
+
                 } else {
                     return OBDII_CAN_PCKT_MISALIGNED;
                 }
@@ -370,6 +374,70 @@ static uint8_t lookup_payload_length( uint8_t mode, uint16_t PID )
 
                 case MODE22_CHARGE_AIR_TEMPERATURE:
                     return MODE22_CHARGE_AIR_TEMPERATURE_LEN;
+
+                default:
+                    return 0;
+            }
+            break;
+
+        default:
+            return 0;
+        }
+}
+
+static PID_UNITS get_pid_base_unit( uint8_t mode, uint16_t PID )
+{
+    switch ( mode )
+    {
+        case MODE1:
+            switch ( PID )
+            {
+                case MODE1_CALCULATED_ENGINE_LOAD_VALUE:
+                    return MODE1_CALCULATED_ENGINE_LOAD_UNITS;
+
+                case MODE1_ENGINE_COOLANT_TEMPERATURE:
+                    return MODE1_ENGINE_COOLANT_TEMPERATURE_UNITS;
+
+                case MODE1_ENGINE_RPM:
+                    return MODE1_ENGINE_RPM_UNITS;
+
+                case MODE1_INTAKE_MANIFOLD_ABSOLUTE_PRESSURE:
+                    return MODE1_INTAKE_MANIFOLD_ABSOLUTE_PRESSURE_UNITS;
+
+                case MODE1_VEHICLE_SPEED:
+                    return MODE1_VEHICLE_SPEED_UNITS;
+
+                case MODE1_INTAKE_AIR_TEMPERATURE:
+                    return MODE1_INTAKE_AIR_TEMPERATURE_UNITS;
+
+                case MODE1_MAF_AIR_FLOW_RATE:
+                    return MODE1_MAF_AIR_FLOW_RATE_UNITS;
+
+                case MODE1_THROTTLE_POSITION:
+                    return MODE1_THROTTLE_POSITION_UNITS;
+
+                case MODE1_BAROMETRIC_PRESSURE:
+                    return MODE1_BAROMETRIC_PRESSURE_UNITS;
+
+                case MODE1_ABSOLUTE_LOAD_VALUE:
+                    return MODE1_ABSOLUTE_LOAD_VALUE_UNITS;
+
+                case MODE1_AMBIENT_AIR_TEMPERATURE:
+                    return MODE1_AMBIENT_AIR_TEMPERATURE_UNITS;
+
+                default:
+                    return 0x00;
+            }
+            break;
+
+        case MODE22:
+            switch ( PID )
+            {
+                case MODE22_INTAKE_AIR_TEMPERATURE:
+                    return MODE22_INTAKE_AIR_TEMPERATURE_UNITS;
+
+                case MODE22_CHARGE_AIR_TEMPERATURE:
+                    return MODE22_CHARGE_AIR_TEMPERATURE_UNITS;
 
                 default:
                     return 0;
