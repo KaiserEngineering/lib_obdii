@@ -20,8 +20,8 @@ static void clear_obdii_packets( POBDII_PACKET_MANAGER dev );
 static void clear_diagnostics( POBDII_PACKET_MANAGER dev );
 static void flush_obdii_rx_buf( POBDII_PACKET_MANAGER dev );
 static void refresh_timeout( POBDII_PACKET_MANAGER dev );
-static uint8_t lookup_payload_length( uint16_t PID );
-static float get_pid_value ( uint16_t pid, uint8_t data[] );
+static uint8_t lookup_payload_length( uint8_t mode, uint16_t PID );
+static float get_pid_value( uint8_t mode, uint16_t pid, uint8_t data[] );
 static OBDII_PROCESS_STATUS OBDII_Process_Packet( POBDII_PACKET_MANAGER dev );
 static void clear_pid_entries( POBDII_PACKET_MANAGER dev );
 
@@ -274,7 +274,7 @@ static OBDII_PROCESS_STATUS OBDII_Process_Packet( POBDII_PACKET_MANAGER dev )
     {
     	if( dev->stream[pid_num]->mode == mode )
     	{
-			if( lookup_payload_length( dev->stream[pid_num]->pid ) > 0 )
+			if( lookup_payload_length( dev->stream[pid_num]->mode, dev->stream[pid_num]->pid ) > 0 )
 			{
 				uint16_t pid = 0;
 				uint8_t pid_len = 0;
@@ -294,14 +294,14 @@ static OBDII_PROCESS_STATUS OBDII_Process_Packet( POBDII_PACKET_MANAGER dev )
 					uint8_t tmpDataBuf[4] = {0, 0, 0, 0};
 
 					/* Save the PID's payload ( 1 to 4 bytes ) */
-					for ( uint8_t data = 0; data < lookup_payload_length( dev->stream[pid_num]->pid ) ; data++ )
+					for ( uint8_t data = 0; data < lookup_payload_length( dev->stream[pid_num]->mode, dev->stream[pid_num]->pid ) ; data++ )
 					{
 						tmpDataBuf[data] = dev->rx_buf[curByte];
 
 						curByte++;
 					}
 
-					dev->stream[pid_num]->pid_value = get_pid_value( dev->stream[pid_num]->pid, tmpDataBuf );
+					dev->stream[pid_num]->pid_value = get_pid_value( dev->stream[pid_num]->mode, dev->stream[pid_num]->pid, tmpDataBuf );
 
 				} else {
 					return OBDII_CAN_PCKT_MISALIGNED;
@@ -317,52 +317,68 @@ static OBDII_PROCESS_STATUS OBDII_Process_Packet( POBDII_PACKET_MANAGER dev )
     return OBDII_PACKET_PROCESS_SUCCESS;
 }
 
-static uint8_t lookup_payload_length( uint16_t PID )
+static uint8_t lookup_payload_length( uint8_t mode, uint16_t PID )
 {
-    switch ( PID )
-    {
-        case MODE1_CALCULATED_ENGINE_LOAD_VALUE:
-            return MODE1_CALCULATED_ENGINE_LOAD_VALUE_LEN;
+	switch ( mode )
+	{
+		case MODE1:
+			switch ( PID )
+			{
+				case MODE1_CALCULATED_ENGINE_LOAD_VALUE:
+					return MODE1_CALCULATED_ENGINE_LOAD_VALUE_LEN;
 
-        case MODE1_ENGINE_COOLANT_TEMPERATURE:
-            return MODE1_ENGINE_COOLANT_TEMPERATURE_LEN;
+				case MODE1_ENGINE_COOLANT_TEMPERATURE:
+					return MODE1_ENGINE_COOLANT_TEMPERATURE_LEN;
 
-        case MODE1_ENGINE_RPM:
-            return MODE1_ENGINE_RPM_LEN;
+				case MODE1_ENGINE_RPM:
+					return MODE1_ENGINE_RPM_LEN;
 
-        case MODE1_INTAKE_MANIFOLD_ABSOLUTE_PRESSURE:
-            return MODE1_INTAKE_MANIFOLD_ABSOLUTE_PRESSURE_LEN;
+				case MODE1_INTAKE_MANIFOLD_ABSOLUTE_PRESSURE:
+					return MODE1_INTAKE_MANIFOLD_ABSOLUTE_PRESSURE_LEN;
 
-        case MODE1_VEHICLE_SPEED:
-            return MODE1_VEHICLE_SPEED_LEN;
+				case MODE1_VEHICLE_SPEED:
+					return MODE1_VEHICLE_SPEED_LEN;
 
-        case MODE1_INTAKE_AIR_TEMPERATURE:
-            return MODE1_INTAKE_AIR_TEMPERATURE_LEN;
+				case MODE1_INTAKE_AIR_TEMPERATURE:
+					return MODE1_INTAKE_AIR_TEMPERATURE_LEN;
 
-        case MODE1_MAF_AIR_FLOW_RATE:
-            return MODE1_MAF_AIR_FLOW_RATE_LEN;
+				case MODE1_MAF_AIR_FLOW_RATE:
+					return MODE1_MAF_AIR_FLOW_RATE_LEN;
 
-        case MODE1_THROTTLE_POSITION:
-            return MODE1_THROTTLE_POSITION_LEN;
+				case MODE1_THROTTLE_POSITION:
+					return MODE1_THROTTLE_POSITION_LEN;
 
-        case MODE1_BAROMETRIC_PRESSURE:
-            return MODE1_BAROMETRIC_PRESSURE_LEN;
+				case MODE1_BAROMETRIC_PRESSURE:
+					return MODE1_BAROMETRIC_PRESSURE_LEN;
 
-        case MODE1_ABSOLUTE_LOAD_VALUE:
-            return MODE1_ABSOLUTE_LOAD_VALUE_LEN;
+				case MODE1_ABSOLUTE_LOAD_VALUE:
+					return MODE1_ABSOLUTE_LOAD_VALUE_LEN;
 
-        case MODE1_AMBIENT_AIR_TEMPERATURE:
-            return MODE1_AMBIENT_AIR_TEMPERATURE_LEN;
+				case MODE1_AMBIENT_AIR_TEMPERATURE:
+					return MODE1_AMBIENT_AIR_TEMPERATURE_LEN;
 
-        case MODE22_INTAKE_AIR_TEMPERATURE:
-        	return MODE22_INTAKE_AIR_TEMPERATURE_LEN;
+				default:
+					return 0x00;
+			}
+			break;
 
-        case MODE22_CHARGE_AIR_TEMPERATURE:
-        	return MODE22_CHARGE_AIR_TEMPERATURE_LEN;
+		case MODE22:
+			switch ( PID )
+			{
+				case MODE22_INTAKE_AIR_TEMPERATURE:
+					return MODE22_INTAKE_AIR_TEMPERATURE_LEN;
 
-        default:
-            return 0;
-    }
+				case MODE22_CHARGE_AIR_TEMPERATURE:
+					return MODE22_CHARGE_AIR_TEMPERATURE_LEN;
+
+				default:
+					return 0;
+			}
+			break;
+
+		default:
+			return 0;
+		}
 }
 
 
@@ -477,43 +493,61 @@ static OBDII_STATUS obdii_generate_PID_Request( POBDII_PACKET_MANAGER dev )
     return OBDII_OK;
 }
 
-static float get_pid_value ( uint16_t pid, uint8_t data[] )
+static float get_pid_value( uint8_t mode, uint16_t pid, uint8_t data[] )
 {
-    switch( pid )
-    {
-        /*    Equation: (A * 100) / 255    */
-        case MODE1_CALCULATED_ENGINE_LOAD_VALUE:
-            return (((float)data[A]) * (float)100) / (float)255;
-            break;
+	switch( mode )
+	{
+		case MODE1:
+			switch( pid )
+			{
+				/*    Equation: (A * 100) / 255    */
+				case MODE1_CALCULATED_ENGINE_LOAD_VALUE:
+					return (((float)data[A]) * (float)100) / (float)255;
+					break;
 
-        case MODE1_INTAKE_AIR_TEMPERATURE:
-        case MODE1_ENGINE_COOLANT_TEMPERATURE:
-        case MODE1_AMBIENT_AIR_TEMPERATURE:
-        case MODE22_INTAKE_AIR_TEMPERATURE:
-            return ((float)data[A] - (float)40);
-            break;
+				case MODE1_INTAKE_AIR_TEMPERATURE:
+				case MODE1_ENGINE_COOLANT_TEMPERATURE:
+				case MODE1_AMBIENT_AIR_TEMPERATURE:
+					return ((float)data[A] - (float)40);
+					break;
 
-        case MODE1_ENGINE_RPM:
-            return (((float)256 * (float)data[A] ) + (float)data[B] ) / (float)4;
-            break;
+				case MODE1_ENGINE_RPM:
+					return (((float)256 * (float)data[A] ) + (float)data[B] ) / (float)4;
+					break;
 
-        case MODE1_INTAKE_MANIFOLD_ABSOLUTE_PRESSURE:
-        case MODE1_VEHICLE_SPEED:
-        case MODE1_BAROMETRIC_PRESSURE:
-            return (float)data[A];
-            break;
+				case MODE1_INTAKE_MANIFOLD_ABSOLUTE_PRESSURE:
+				case MODE1_VEHICLE_SPEED:
+				case MODE1_BAROMETRIC_PRESSURE:
+					return (float)data[A];
+					break;
 
-        case MODE1_MAF_AIR_FLOW_RATE:
-            return (((float)256 * (float)data[A] ) + (float)data[B] ) / (float)100;
-            break;
+				case MODE1_MAF_AIR_FLOW_RATE:
+					return (((float)256 * (float)data[A] ) + (float)data[B] ) / (float)100;
+					break;
 
-        case MODE22_CHARGE_AIR_TEMPERATURE:
-        	return (((float)256 * (float)data[A] ) + (float)data[B] ) / (float)64;
+				default:
+					return -1;
+					break;
+			}
 
-        default:
-            return -1;
-            break;
-    }
+		case MODE22:
+			switch( pid )
+			{
+				case MODE22_CHARGE_AIR_TEMPERATURE:
+					return (((float)256 * (float)data[A] ) + (float)data[B] ) / (float)64;
+
+				case MODE22_INTAKE_AIR_TEMPERATURE:
+					return ((float)data[A] - (float)40);
+					break;
+
+				default:
+					return -1;
+					break;
+			}
+
+		default:
+			return -1;
+	}
 }
 
 static void refresh_timeout( POBDII_PACKET_MANAGER dev )
