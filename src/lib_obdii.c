@@ -396,7 +396,7 @@ static OBDII_STATUS obdii_generate_PID_Request( POBDII_PACKET_MANAGER dev )
 
     /*************************************************************************
      * Parse through each packet and initialize it to the determined header,
-     * CAN bus mode and fill the packet buffer with 0x00.
+     * CAN bus mode and fill the packet buffer with 0x55.
      *************************************************************************/
     clear_obdii_packets(dev);
 
@@ -574,9 +574,7 @@ static void clear_obdii_packets( POBDII_PACKET_MANAGER dev )
         dev->msg[i].num_frames = 0;
 
         for( uint8_t index = 0; index < OBDII_MAX_FRAMES; index++)
-        {
             memset(dev->msg[i].frame[index].buf, 0x55, OBDII_DLC);
-        }
     }
 }
 
