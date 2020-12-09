@@ -527,89 +527,89 @@ static float get_pid_value( uint8_t mode, uint16_t pid, uint8_t data[] )
             {
                 /*    Equation: (A * 100) / 255    */
                 #ifdef MODE1_CALCULATED_ENGINE_LOAD_VALUE_SUPPORTED
-                    #ifndef EQ_100_TIMES_A_OVER_255
-                    #define EQ_100_TIMES_A_OVER_255
+                    #ifndef MODE1_EQ_100_TIMES_A_OVER_255
+                    #define MODE1_EQ_100_TIMES_A_OVER_255
                     #endif
                 case MODE1_CALCULATED_ENGINE_LOAD_VALUE:
                 #endif
 
-                #ifdef EQ_100_TIMES_A_OVER_255
+                #ifdef MODE1_EQ_100_TIMES_A_OVER_255
                     return (((float)data[A]) * (float)100) / (float)255;
                     break;
                 #endif
 
                 #ifdef MODE1_INTAKE_AIR_TEMPERATURE_SUPPORTED
-                    #ifndef EQ_A_MINUS_40
-                    #define EQ_A_MINUS_40
+                    #ifndef MODE1_EQ_A_MINUS_40
+                    #define MODE1_EQ_A_MINUS_40
                     #endif
                 case MODE1_INTAKE_AIR_TEMPERATURE:
                 #endif
 
                 #ifdef MODE1_ENGINE_COOLANT_TEMPERATURE_SUPPORTED
-                    #ifndef EQ_A_MINUS_40
-                    #define EQ_A_MINUS_40
+                    #ifndef MODE1_EQ_A_MINUS_40
+                    #define MODE1_EQ_A_MINUS_40
                     #endif
                 case MODE1_ENGINE_COOLANT_TEMPERATURE:
                 #endif
 
                 #ifdef MODE1_AMBIENT_AIR_TEMPERATURE_SUPPORTED
-                    #ifndef EQ_A_MINUS_40
-                    #define EQ_A_MINUS_40
+                    #ifndef MODE1_EQ_A_MINUS_40
+                    #define MODE1_EQ_A_MINUS_40
                     #endif
                 case MODE1_AMBIENT_AIR_TEMPERATURE:
                 #endif
 
-                #ifdef EQ_A_MINUS_40
+                #ifdef MODE1_EQ_A_MINUS_40
                     return ((float)data[A] - (float)40);
                     break;
                 #endif
 
                 #ifdef MODE1_ENGINE_RPM_SUPPORTED
-                    #ifndef EQ_256_TIMES_A_PLUS_B_OVER_255
-                    #define EQ_256_TIMES_A_PLUS_B_OVER_255
+                    #ifndef MODE1_EQ_256_TIMES_A_PLUS_B_OVER_255
+                    #define MODE1_EQ_256_TIMES_A_PLUS_B_OVER_255
                     #endif
                 case MODE1_ENGINE_RPM:
                 #endif
 
-                #ifdef EQ_256_TIMES_A_PLUS_B_OVER_255
+                #ifdef MODE1_EQ_256_TIMES_A_PLUS_B_OVER_255
                     return (((float)256 * (float)data[A] ) + (float)data[B] ) / (float)4;
                     break;
                 #endif
 
                 #ifdef MODE1_INTAKE_MANIFOLD_ABSOLUTE_PRESSURE_SUPPORTED
-                    #ifndef EQ_A
-                    #define EQ_A
+                    #ifndef MODE1_EQ_A
+                    #define MODE1_EQ_A
                     #endif
                 case MODE1_INTAKE_MANIFOLD_ABSOLUTE_PRESSURE:
                 #endif
 
                 #ifdef MODE1_VEHICLE_SPEED_SUPPORTED
-                    #ifndef EQ_A
-                    #define EQ_A
+                    #ifndef MODE1_EQ_A
+                    #define MODE1_EQ_A
                     #endif
                 case MODE1_VEHICLE_SPEED:
                 #endif
 
                 #ifdef MODE1_BAROMETRIC_PRESSURE_SUPPORTED
-                    #ifndef EQ_A
-                    #define EQ_A
+                    #ifndef MODE1_EQ_A
+                    #define MODE1_EQ_A
                     #endif
                 case MODE1_BAROMETRIC_PRESSURE:
                 #endif
 
-                #ifdef EQ_A
+                #ifdef MODE1_EQ_A
                     return (float)data[A];
                     break;
                 #endif
 
                 #ifdef MODE1_MAF_AIR_FLOW_RATE_SUPPORTED
-                    #ifndef EQ_256_TIMES_A_PLUS_B_OVER_100
-                    #define EQ_256_TIMES_A_PLUS_B_OVER_100
+                    #ifndef MODE1_EQ_256_TIMES_A_PLUS_B_OVER_100
+                    #define MODE1_EQ_256_TIMES_A_PLUS_B_OVER_100
                     #endif
                 case MODE1_MAF_AIR_FLOW_RATE:
                 #endif
 
-                #ifdef EQ_256_TIMES_A_PLUS_B_OVER_100
+                #ifdef MODE1_EQ_256_TIMES_A_PLUS_B_OVER_100
                     return (((float)256 * (float)data[A] ) + (float)data[B] ) / (float)100;
                     break;
                 #endif
