@@ -623,12 +623,24 @@ static float get_pid_value( uint8_t mode, uint16_t pid, uint8_t data[] )
             switch( pid )
             {
                 #ifdef MODE22_CHARGE_AIR_TEMPERATURE_SUPPORTED
+                    #ifndef MODE22_EQ_256_TIMES_A_PLUS_B_OVER_64
+                    #define MODE22_EQ_256_TIMES_A_PLUS_B_OVER_64
+                    #endif
                 case MODE22_CHARGE_AIR_TEMPERATURE:
+                #endif
+
+                #ifdef MODE22_EQ_256_TIMES_A_PLUS_B_OVER_64
                     return (((float)256 * (float)data[A] ) + (float)data[B] ) / (float)64;
                 #endif
 
                 #ifdef MODE22_INTAKE_AIR_TEMPERATURE_SUPPORTED
+                    #ifndef MODE22_EQ_A_MINUS_40
+                    #define MODE22_EQ_A_MINUS_40
+                    #endif
                 case MODE22_INTAKE_AIR_TEMPERATURE:
+                #endif
+
+                #ifdef MODE22_EQ_A_MINUS_40
                     return ((float)data[A] - (float)40);
                     break;
                 #endif
