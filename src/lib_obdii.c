@@ -397,6 +397,11 @@ static uint8_t lookup_payload_length( uint8_t mode, uint16_t PID )
                     return MODE22_CHARGE_AIR_TEMPERATURE_LEN;
                 #endif
 
+                #ifdef MODE22_AMBIENT_AIR_TEMPERATURE_SUPPORTED
+                case MODE22_AMBIENT_AIR_TEMPERATURE:
+                    return MODE22_AMBIENT_AIR_TEMPERATURE_LEN;
+                #endif
+
                 default:
                     return 0;
             }
@@ -638,6 +643,13 @@ static float get_pid_value( uint8_t mode, uint16_t pid, uint8_t data[] )
                     #define MODE22_EQ_A_MINUS_40
                     #endif
                 case MODE22_INTAKE_AIR_TEMPERATURE:
+                #endif
+
+                #ifdef MODE22_AMBIENT_AIR_TEMPERATURE_SUPPORTED
+                    #ifndef MODE22_EQ_A_MINUS_40
+                    #define MODE22_EQ_A_MINUS_40
+                    #endif
+                case MODE22_AMBIENT_AIR_TEMPERATURE:
                 #endif
 
                 #ifdef MODE22_EQ_A_MINUS_40
