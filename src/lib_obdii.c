@@ -33,6 +33,30 @@ uint32_t obdii_tick = 0;
  * then the pid is a single byte, otherwise it is 2 bytes.               */
 static uint8_t get_num_bytes( uint16_t pid ) { return ( 1U + ( (pid >> 8) || 0) ); }
 
+/* Re-enable communication, this only needs to be called if the          *
+ * communication has been paused.                                        */
+void OBDII_Continue( POBDII_PACKET_MANAGER dev )
+{
+    /* Clear the pause flag */
+    dev->status_flags &= ~OBDII_COMM_PAUSE;
+
+    /* Refresh the timeout */
+    refresh_timeout(dev);
+}
+
+/* Pause the library from requesting data. This is important for when    *
+ * another device is present. This allows the system to save the current *
+ * PID stream but stop communication.                                    */
+void OBDII_Pause( POBDII_PACKET_MANAGER dev )
+{
+    /* Set the pause flag */
+    dev->status_flags |= OBDII_COMM_PAUSE;
+
+    /* Clear the pending message flag since communication has paused and *
+     * the packet will be lost.                                          */
+    dev->status_flags &= ~OBDII_PENDING_RESPONSE;
+}
+
 void OBDII_Initialize( POBDII_PACKET_MANAGER dev )
 {
     dev->status_flags = 0;
@@ -65,7 +89,7 @@ OBDII_PACKET_MANAGER_STATUS OBDII_Service( POBDII_PACKET_MANAGER dev )
     /*************************************************************************
      * Nothing shall happen until PID[s] are requested.
      ************************************************************************/
-    if( dev->num_pids == 0 )
+    if( (dev->num_pids == 0) || (dev->status_flags & OBDII_COMM_PAUSE) )
         return OBDII_PM_IDLE;
 
     /*************************************************************************
