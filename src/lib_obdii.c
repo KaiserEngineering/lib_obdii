@@ -82,6 +82,35 @@ OBDII_STATUS OBDII_add_PID_request( POBDII_PACKET_MANAGER dev, PTR_PID_DATA pid 
     return OBDII_OK;
 }
 
+OBDII_STATUS OBDII_remove_PID_request( POBDII_PACKET_MANAGER dev, PTR_PID_DATA pid )
+{
+    /* Clear the packet generated flag to start packet regeneration */
+    dev->status_flags &= ~OBDII_PACKET_GENERATED;
+
+    /* Cycle through all the PIDs to find which one must be removed */
+    for( uint8_t i = 0; i < dev->num_pids; i++ )
+    {
+        /* If found, pop that pointer reference */
+        if( dev->stream[i] == pid )
+        {
+            if( dev->num_pids > 1 )
+            {
+                for( uint8_t j = i + 1; j < dev->num_pids; j++ )
+                {
+                    dev->stream[j - 1] = dev->stream[j];
+                    lib_pid_clear_PID( dev->stream[j] );
+                }
+            }
+
+            /* Remove the PID */
+            dev->num_pids--;
+        }
+    }
+
+    /* Return a success */
+    return OBDII_OK;
+}
+
 OBDII_PACKET_MANAGER_STATUS OBDII_Service( POBDII_PACKET_MANAGER dev )
 {
     /*************************************************************************

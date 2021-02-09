@@ -217,6 +217,8 @@ void OBDII_Initialize( POBDII_PACKET_MANAGER dev );
 
 OBDII_STATUS OBDII_add_PID_request( POBDII_PACKET_MANAGER dev, PTR_PID_DATA pid );
 
+OBDII_STATUS OBDII_remove_PID_request( POBDII_PACKET_MANAGER dev, PTR_PID_DATA pid );
+
 
 /**************************************************************
  * OBD-II service must be called routinely, ideally in the main
