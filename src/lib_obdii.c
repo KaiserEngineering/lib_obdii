@@ -464,7 +464,7 @@ void OBDII_tick( void )
 
 static void clear_obdii_packets( POBDII_PACKET_MANAGER dev )
 {
-    for( uint8_t i = 0; i < OBDII_MAX_MSGS; i++)
+    for( uint8_t i = 0; i < OBDII_MAX_MSGS; i++ )
     {
         dev->msg[i].mode = MODE_NOT_CONFIGURED;
 
@@ -472,7 +472,7 @@ static void clear_obdii_packets( POBDII_PACKET_MANAGER dev )
 
         dev->msg[i].num_frames = 0;
 
-        for( uint8_t index = 0; index < OBDII_MAX_FRAMES; index++)
+        for( uint8_t index = 0; index < OBDII_MAX_FRAMES; index++ )
             memset(dev->msg[i].frame[index].buf, 0x55, OBDII_DLC);
     }
 }
