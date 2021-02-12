@@ -88,17 +88,15 @@ OBDII_STATUS OBDII_remove_PID_request( POBDII_PACKET_MANAGER dev, PTR_PID_DATA p
     dev->status_flags &= ~OBDII_PACKET_GENERATED;
 
     /* Cycle through all the PIDs to find which one must be removed */
-    for( uint8_t i = 0; i < dev->num_pids; i++ )
+    for( uint8_t index = 0; index < dev->num_pids; index++ )
     {
         /* If found, pop that pointer reference */
-        if( dev->stream[i] == pid )
+        if( dev->stream[index] == pid )
         {
             if( dev->num_pids > 1 )
             {
-                for( uint8_t j = i + 1; j < dev->num_pids; j++ )
-                {
-                    dev->stream[j - 1] = dev->stream[j];
-                    lib_pid_clear_PID( dev->stream[j] );
+                for( uint8_t i = index; index < dev->num_pids; index++ ) {
+                    dev->stream[i] = dev->stream[i + 1];
                 }
             }
 
@@ -116,7 +114,7 @@ OBDII_PACKET_MANAGER_STATUS OBDII_Service( POBDII_PACKET_MANAGER dev )
     /*************************************************************************
      * Nothing shall happen until PID[s] are requested.
      ************************************************************************/
-    if( (dev->num_pids == 0) || (dev->status_flags & OBDII_COMM_PAUSE) )
+    if( (dev->num_pids == 0) )
         return OBDII_PM_IDLE;
 
     /*************************************************************************
