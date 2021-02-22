@@ -97,6 +97,7 @@ OBDII_STATUS OBDII_remove_PID_request( POBDII_PACKET_MANAGER dev, PTR_PID_DATA p
             {
                 for( uint8_t i = index; i < dev->num_pids; i++ ) {
                     dev->stream[i] = dev->stream[i + 1];
+                    dev->stream[i + 1] = NULL;
                 }
             }
 
