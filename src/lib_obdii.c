@@ -104,6 +104,9 @@ OBDII_STATUS OBDII_remove_PID_request( POBDII_PACKET_MANAGER dev, PTR_PID_DATA p
             /* Remove the PID */
             if( dev->num_pids > 0 )
                 dev->num_pids--;
+
+            /* Return a success */
+            return OBDII_OK;
         }
     }
 
