@@ -217,7 +217,7 @@ OBDII_PACKET_MANAGER_STATUS OBDII_Service( POBDII_PACKET_MANAGER dev )
 OBDII_STATUS OBDII_Add_Packet( POBDII_PACKET_MANAGER dev, uint16_t arbitration_id, uint8_t* packet_data )
 {
     /* Verify the CAN packet is intended for the Digital Dash */
-    if( arbitration_id >= 0x7E0 ) //TODO
+    if( arbitration_id > 0x7E0 ) //TODO
     {
         /* Number of bytes in the CAN packet that is not data */
         uint8_t num_supporting_bytes = OBDII_DLC;
@@ -312,6 +312,8 @@ OBDII_STATUS OBDII_Add_Packet( POBDII_PACKET_MANAGER dev, uint16_t arbitration_i
             dev->status_flags |= OBDII_RESPONSE_RECEIVED;
         }
 
+    } else if ( arbitration_id == 0x7E0 ) {
+        refresh_timeout( dev );
     }
     return OBDII_OK;
 }
