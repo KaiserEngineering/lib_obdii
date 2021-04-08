@@ -119,7 +119,7 @@ OBDII_PACKET_MANAGER_STATUS OBDII_Service( POBDII_PACKET_MANAGER dev )
     /*************************************************************************
      * Nothing shall happen until PID[s] are requested.
      ************************************************************************/
-    if( (dev->num_pids == 0) )
+    if( (dev->num_pids == 0) || (dev->status_flags & OBDII_COMM_PAUSE) )
         return OBDII_PM_IDLE;
 
     /*************************************************************************
