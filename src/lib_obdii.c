@@ -10,7 +10,7 @@
  *
  *-------------------------------------------------------------------*/
 
-#include <lib_obdii.h>
+#include "lib_obdii.h"
 
 #define MODE_NOT_CONFIGURED 0xAA
 
@@ -74,9 +74,7 @@ OBDII_STATUS OBDII_add_PID_request( POBDII_PACKET_MANAGER dev, PTR_PID_DATA pid 
         return OBDII_MAX_PIDS_REACHED;
 
     /* Add the PID request */
-    dev->stream[dev->num_pids] = pid;
-
-    dev->num_pids++;
+    dev->stream[dev->num_pids++] = pid;
 
     /* Return a success */
     return OBDII_OK;
@@ -506,11 +504,11 @@ static void clear_obdii_packets( POBDII_PACKET_MANAGER dev )
 
         dev->msg[i].num_frames = 0;
 
-        dev->num_msgs = 0;
-
         for( uint8_t index = 0; index < OBDII_MAX_FRAMES; index++ )
             memset(dev->msg[i].frame[index].buf, 0x55, OBDII_DLC);
     }
+
+    dev->num_msgs = 0;
 }
 
 static void flush_obdii_rx_buf( POBDII_PACKET_MANAGER dev )
