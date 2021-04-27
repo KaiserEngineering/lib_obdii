@@ -20,7 +20,7 @@
 #define OBDII_MAX_FRAMES 0x04
 #define OBDII_DLC        0x08
 #define OBDII_MAX_PIDS   25
-#define OBDII_MAX_MSGS   2
+#define OBDII_MAX_MSGS   8
 #define OBDII_RX_BUF_SIZE OBDII_MAX_FRAMES * OBDII_DLC
 
 #define ISO_15765_2_FRAME_TYPE_MASK            0xF0
