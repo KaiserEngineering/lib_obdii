@@ -10,7 +10,7 @@
  *
  *-------------------------------------------------------------------*/
 
-#include <lib_obdii.h>
+#include "lib_obdii.h"
 
 #define MODE_NOT_CONFIGURED 0xAA
 
@@ -20,8 +20,6 @@ static void clear_obdii_packets( POBDII_PACKET_MANAGER dev );
 static void clear_diagnostics( POBDII_PACKET_MANAGER dev );
 static void flush_obdii_rx_buf( POBDII_PACKET_MANAGER dev );
 static void refresh_timeout( POBDII_PACKET_MANAGER dev );
-static uint8_t lookup_payload_length( uint8_t mode, uint16_t PID );
-static float get_pid_value( uint8_t mode, uint16_t pid, uint8_t data[] );
 static OBDII_PROCESS_STATUS OBDII_Process_Packet( POBDII_PACKET_MANAGER dev );
 static void clear_pid_entries( POBDII_PACKET_MANAGER dev );
 
@@ -32,6 +30,30 @@ uint32_t obdii_tick = 0;
 /* Returns the number of bytes a PID request has, if the first byte is 0 *
  * then the pid is a single byte, otherwise it is 2 bytes.               */
 static uint8_t get_num_bytes( uint16_t pid ) { return ( 1U + ( (pid >> 8) || 0) ); }
+
+/* Re-enable communication, this only needs to be called if the          *
+ * communication has been paused.                                        */
+void OBDII_Continue( POBDII_PACKET_MANAGER dev )
+{
+    /* Clear the pause flag */
+    dev->status_flags &= ~OBDII_COMM_PAUSE;
+
+    /* Refresh the timeout */
+    refresh_timeout(dev);
+}
+
+/* Pause the library from requesting data. This is important for when    *
+ * another device is present. This allows the system to save the current *
+ * PID stream but stop communication.                                    */
+void OBDII_Pause( POBDII_PACKET_MANAGER dev )
+{
+    /* Set the pause flag */
+    dev->status_flags |= OBDII_COMM_PAUSE;
+
+    /* Clear the pending message flag since communication has paused and *
+     * the packet will be lost.                                          */
+    dev->status_flags &= ~OBDII_PENDING_RESPONSE;
+}
 
 void OBDII_Initialize( POBDII_PACKET_MANAGER dev )
 {
@@ -52,9 +74,39 @@ OBDII_STATUS OBDII_add_PID_request( POBDII_PACKET_MANAGER dev, PTR_PID_DATA pid 
         return OBDII_MAX_PIDS_REACHED;
 
     /* Add the PID request */
-    dev->stream[dev->num_pids] = pid;
+    dev->stream[dev->num_pids++] = pid;
 
-    dev->num_pids++;
+    /* Return a success */
+    return OBDII_OK;
+}
+
+OBDII_STATUS OBDII_remove_PID_request( POBDII_PACKET_MANAGER dev, PTR_PID_DATA pid )
+{
+    /* Clear the packet generated flag to start packet regeneration */
+    dev->status_flags &= ~OBDII_PACKET_GENERATED;
+
+    /* Cycle through all the PIDs to find which one must be removed */
+    for( uint8_t index = 0; index < dev->num_pids; index++ )
+    {
+        /* If found, pop that pointer reference */
+        if( dev->stream[index] == pid )
+        {
+            if( dev->num_pids > 1 )
+            {
+                for( uint8_t i = index; i < dev->num_pids; i++ ) {
+                    dev->stream[i] = dev->stream[i + 1];
+                    dev->stream[i + 1] = NULL;
+                }
+            }
+
+            /* Remove the PID */
+            if( dev->num_pids > 0 )
+                dev->num_pids--;
+
+            /* Return a success */
+            return OBDII_OK;
+        }
+    }
 
     /* Return a success */
     return OBDII_OK;
@@ -65,7 +117,7 @@ OBDII_PACKET_MANAGER_STATUS OBDII_Service( POBDII_PACKET_MANAGER dev )
     /*************************************************************************
      * Nothing shall happen until PID[s] are requested.
      ************************************************************************/
-    if( dev->num_pids == 0 )
+    if( (dev->num_pids == 0) || (dev->status_flags & OBDII_COMM_PAUSE) )
         return OBDII_PM_IDLE;
 
     /*************************************************************************
@@ -163,7 +215,7 @@ OBDII_PACKET_MANAGER_STATUS OBDII_Service( POBDII_PACKET_MANAGER dev )
 OBDII_STATUS OBDII_Add_Packet( POBDII_PACKET_MANAGER dev, uint16_t arbitration_id, uint8_t* packet_data )
 {
     /* Verify the CAN packet is intended for the Digital Dash */
-    if( arbitration_id >= 0x7E0 ) //TODO
+    if( arbitration_id > 0x7E0 ) //TODO
     {
         /* Number of bytes in the CAN packet that is not data */
         uint8_t num_supporting_bytes = OBDII_DLC;
@@ -258,6 +310,8 @@ OBDII_STATUS OBDII_Add_Packet( POBDII_PACKET_MANAGER dev, uint16_t arbitration_i
             dev->status_flags |= OBDII_RESPONSE_RECEIVED;
         }
 
+    } else if ( arbitration_id == 0x7E0 ) {
+        refresh_timeout( dev );
     }
     return OBDII_OK;
 }
@@ -316,101 +370,6 @@ static OBDII_PROCESS_STATUS OBDII_Process_Packet( POBDII_PACKET_MANAGER dev )
     refresh_timeout(dev);
 
     return OBDII_PACKET_PROCESS_SUCCESS;
-}
-
-static uint8_t lookup_payload_length( uint8_t mode, uint16_t PID )
-{
-    switch ( mode )
-    {
-        case MODE1:
-            switch ( PID )
-            {
-                #ifdef MODE1_CALCULATED_ENGINE_LOAD_VALUE_SUPPORTED
-                case MODE1_CALCULATED_ENGINE_LOAD_VALUE:
-                    return MODE1_CALCULATED_ENGINE_LOAD_VALUE_LEN;
-                #endif
-
-                #ifdef MODE1_ENGINE_COOLANT_TEMPERATURE_SUPPORTED
-                case MODE1_ENGINE_COOLANT_TEMPERATURE:
-                    return MODE1_ENGINE_COOLANT_TEMPERATURE_LEN;
-                #endif
-
-                #ifdef MODE1_ENGINE_RPM_SUPPORTED
-                case MODE1_ENGINE_RPM:
-                    return MODE1_ENGINE_RPM_LEN;
-                #endif
-
-                #ifdef MODE1_INTAKE_MANIFOLD_ABSOLUTE_PRESSURE_SUPPORTED
-                case MODE1_INTAKE_MANIFOLD_ABSOLUTE_PRESSURE:
-                    return MODE1_INTAKE_MANIFOLD_ABSOLUTE_PRESSURE_LEN;
-                #endif
-
-                #ifdef MODE1_VEHICLE_SPEED_SUPPORTED
-                case MODE1_VEHICLE_SPEED:
-                    return MODE1_VEHICLE_SPEED_LEN;
-                #endif
-
-                #ifdef MODE1_INTAKE_AIR_TEMPERATURE_SUPPORTED
-                case MODE1_INTAKE_AIR_TEMPERATURE:
-                    return MODE1_INTAKE_AIR_TEMPERATURE_LEN;
-                #endif
-
-                #ifdef MODE1_MAF_AIR_FLOW_RATE_SUPPORTED
-                case MODE1_MAF_AIR_FLOW_RATE:
-                    return MODE1_MAF_AIR_FLOW_RATE_LEN;
-                #endif
-
-                #ifdef MODE1_THROTTLE_POSITION_SUPPORTED
-                case MODE1_THROTTLE_POSITION:
-                    return MODE1_THROTTLE_POSITION_LEN;
-                #endif
-
-                #ifdef MODE1_BAROMETRIC_PRESSURE_SUPPORTED
-                case MODE1_BAROMETRIC_PRESSURE:
-                    return MODE1_BAROMETRIC_PRESSURE_LEN;
-                #endif
-
-                #ifdef MODE1_ABSOLUTE_LOAD_VALUE_SUPPORTED
-                case MODE1_ABSOLUTE_LOAD_VALUE:
-                    return MODE1_ABSOLUTE_LOAD_VALUE_LEN;
-                #endif
-
-                #ifdef MODE1_AMBIENT_AIR_TEMPERATURE_SUPPORTED
-                case MODE1_AMBIENT_AIR_TEMPERATURE:
-                    return MODE1_AMBIENT_AIR_TEMPERATURE_LEN;
-                #endif
-
-                default:
-                    return 0x00;
-            }
-            break;
-
-        case MODE22:
-            switch ( PID )
-            {
-                #ifdef MODE22_INTAKE_AIR_TEMPERATURE_SUPPORTED
-                case MODE22_INTAKE_AIR_TEMPERATURE:
-                    return MODE22_INTAKE_AIR_TEMPERATURE_LEN;
-                #endif
-
-                #ifdef MODE22_CHARGE_AIR_TEMPERATURE_SUPPORTED
-                case MODE22_CHARGE_AIR_TEMPERATURE:
-                    return MODE22_CHARGE_AIR_TEMPERATURE_LEN;
-                #endif
-
-                #ifdef MODE22_AMBIENT_AIR_TEMPERATURE_SUPPORTED
-                case MODE22_AMBIENT_AIR_TEMPERATURE:
-                    return MODE22_AMBIENT_AIR_TEMPERATURE_LEN;
-                #endif
-
-                default:
-                    return 0;
-            }
-            break;
-
-        default:
-            return 0;
-        }
 }
 
 static OBDII_STATUS obdii_generate_PID_Request( POBDII_PACKET_MANAGER dev )
@@ -524,150 +483,6 @@ static OBDII_STATUS obdii_generate_PID_Request( POBDII_PACKET_MANAGER dev )
     return OBDII_OK;
 }
 
-static float get_pid_value( uint8_t mode, uint16_t pid, uint8_t data[] )
-{
-    switch( mode )
-    {
-        case MODE1:
-            switch( pid )
-            {
-                /*    Equation: (A * 100) / 255    */
-                #ifdef MODE1_CALCULATED_ENGINE_LOAD_VALUE_SUPPORTED
-                    #ifndef MODE1_EQ_100_TIMES_A_OVER_255
-                    #define MODE1_EQ_100_TIMES_A_OVER_255
-                    #endif
-                case MODE1_CALCULATED_ENGINE_LOAD_VALUE:
-                #endif
-
-                #ifdef MODE1_EQ_100_TIMES_A_OVER_255
-                    return (((float)data[A]) * (float)100) / (float)255;
-                    break;
-                #endif
-
-                #ifdef MODE1_INTAKE_AIR_TEMPERATURE_SUPPORTED
-                    #ifndef MODE1_EQ_A_MINUS_40
-                    #define MODE1_EQ_A_MINUS_40
-                    #endif
-                case MODE1_INTAKE_AIR_TEMPERATURE:
-                #endif
-
-                #ifdef MODE1_ENGINE_COOLANT_TEMPERATURE_SUPPORTED
-                    #ifndef MODE1_EQ_A_MINUS_40
-                    #define MODE1_EQ_A_MINUS_40
-                    #endif
-                case MODE1_ENGINE_COOLANT_TEMPERATURE:
-                #endif
-
-                #ifdef MODE1_AMBIENT_AIR_TEMPERATURE_SUPPORTED
-                    #ifndef MODE1_EQ_A_MINUS_40
-                    #define MODE1_EQ_A_MINUS_40
-                    #endif
-                case MODE1_AMBIENT_AIR_TEMPERATURE:
-                #endif
-
-                #ifdef MODE1_EQ_A_MINUS_40
-                    return ((float)data[A] - (float)40);
-                    break;
-                #endif
-
-                #ifdef MODE1_ENGINE_RPM_SUPPORTED
-                    #ifndef MODE1_EQ_256_TIMES_A_PLUS_B_OVER_255
-                    #define MODE1_EQ_256_TIMES_A_PLUS_B_OVER_255
-                    #endif
-                case MODE1_ENGINE_RPM:
-                #endif
-
-                #ifdef MODE1_EQ_256_TIMES_A_PLUS_B_OVER_255
-                    return (((float)256 * (float)data[A] ) + (float)data[B] ) / (float)4;
-                    break;
-                #endif
-
-                #ifdef MODE1_INTAKE_MANIFOLD_ABSOLUTE_PRESSURE_SUPPORTED
-                    #ifndef MODE1_EQ_A
-                    #define MODE1_EQ_A
-                    #endif
-                case MODE1_INTAKE_MANIFOLD_ABSOLUTE_PRESSURE:
-                #endif
-
-                #ifdef MODE1_VEHICLE_SPEED_SUPPORTED
-                    #ifndef MODE1_EQ_A
-                    #define MODE1_EQ_A
-                    #endif
-                case MODE1_VEHICLE_SPEED:
-                #endif
-
-                #ifdef MODE1_BAROMETRIC_PRESSURE_SUPPORTED
-                    #ifndef MODE1_EQ_A
-                    #define MODE1_EQ_A
-                    #endif
-                case MODE1_BAROMETRIC_PRESSURE:
-                #endif
-
-                #ifdef MODE1_EQ_A
-                    return (float)data[A];
-                    break;
-                #endif
-
-                #ifdef MODE1_MAF_AIR_FLOW_RATE_SUPPORTED
-                    #ifndef MODE1_EQ_256_TIMES_A_PLUS_B_OVER_100
-                    #define MODE1_EQ_256_TIMES_A_PLUS_B_OVER_100
-                    #endif
-                case MODE1_MAF_AIR_FLOW_RATE:
-                #endif
-
-                #ifdef MODE1_EQ_256_TIMES_A_PLUS_B_OVER_100
-                    return (((float)256 * (float)data[A] ) + (float)data[B] ) / (float)100;
-                    break;
-                #endif
-
-                default:
-                    return -1;
-                    break;
-            }
-
-        case MODE22:
-            switch( pid )
-            {
-                #ifdef MODE22_CHARGE_AIR_TEMPERATURE_SUPPORTED
-                    #ifndef MODE22_EQ_256_TIMES_A_PLUS_B_OVER_64
-                    #define MODE22_EQ_256_TIMES_A_PLUS_B_OVER_64
-                    #endif
-                case MODE22_CHARGE_AIR_TEMPERATURE:
-                #endif
-
-                #ifdef MODE22_EQ_256_TIMES_A_PLUS_B_OVER_64
-                    return (((float)256 * (float)data[A] ) + (float)data[B] ) / (float)64;
-                #endif
-
-                #ifdef MODE22_INTAKE_AIR_TEMPERATURE_SUPPORTED
-                    #ifndef MODE22_EQ_A_MINUS_40
-                    #define MODE22_EQ_A_MINUS_40
-                    #endif
-                case MODE22_INTAKE_AIR_TEMPERATURE:
-                #endif
-
-                #ifdef MODE22_AMBIENT_AIR_TEMPERATURE_SUPPORTED
-                    #ifndef MODE22_EQ_A_MINUS_40
-                    #define MODE22_EQ_A_MINUS_40
-                    #endif
-                case MODE22_AMBIENT_AIR_TEMPERATURE:
-                #endif
-
-                #ifdef MODE22_EQ_A_MINUS_40
-                    return ((float)data[A] - (float)40);
-                    break;
-                #endif
-
-                default:
-                    return -1;
-                    break;
-            }
-
-        default:
-            return -1;
-    }
-}
-
 static void refresh_timeout( POBDII_PACKET_MANAGER dev )
 {
     dev->obdii_time = obdii_tick;
@@ -681,7 +496,7 @@ void OBDII_tick( void )
 
 static void clear_obdii_packets( POBDII_PACKET_MANAGER dev )
 {
-    for( uint8_t i = 0; i < OBDII_MAX_MSGS; i++)
+    for( uint8_t i = 0; i < OBDII_MAX_MSGS; i++ )
     {
         dev->msg[i].mode = MODE_NOT_CONFIGURED;
 
@@ -689,9 +504,11 @@ static void clear_obdii_packets( POBDII_PACKET_MANAGER dev )
 
         dev->msg[i].num_frames = 0;
 
-        for( uint8_t index = 0; index < OBDII_MAX_FRAMES; index++)
+        for( uint8_t index = 0; index < OBDII_MAX_FRAMES; index++ )
             memset(dev->msg[i].frame[index].buf, 0x55, OBDII_DLC);
     }
+
+    dev->num_msgs = 0;
 }
 
 static void flush_obdii_rx_buf( POBDII_PACKET_MANAGER dev )

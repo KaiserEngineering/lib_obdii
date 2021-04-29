@@ -20,7 +20,7 @@
 #define OBDII_MAX_FRAMES 0x04
 #define OBDII_DLC        0x08
 #define OBDII_MAX_PIDS   25
-#define OBDII_MAX_MSGS   2
+#define OBDII_MAX_MSGS   8
 #define OBDII_RX_BUF_SIZE OBDII_MAX_FRAMES * OBDII_DLC
 
 #define ISO_15765_2_FRAME_TYPE_MASK            0xF0
@@ -174,6 +174,7 @@ typedef struct _obdii_packet_manager {
         #define OBDII_PACKET_GENERATED  0x1  /* The OBD-II packet is up to date with the latest PIDs */
         #define OBDII_PENDING_RESPONSE  0x2  /* A CAN packet has been sent and is waiting for a response */
         #define OBDII_RESPONSE_RECEIVED 0x4  /* A sent message received a response */
+        #define OBDII_COMM_PAUSE        0x8  /* Stop all communication */
     OBDII_INIT init;
 
     uint8_t num_pids;
@@ -216,6 +217,8 @@ void OBDII_Initialize( POBDII_PACKET_MANAGER dev );
 
 OBDII_STATUS OBDII_add_PID_request( POBDII_PACKET_MANAGER dev, PTR_PID_DATA pid );
 
+OBDII_STATUS OBDII_remove_PID_request( POBDII_PACKET_MANAGER dev, PTR_PID_DATA pid );
+
 
 /**************************************************************
  * OBD-II service must be called routinely, ideally in the main
@@ -227,6 +230,27 @@ OBDII_STATUS OBDII_add_PID_request( POBDII_PACKET_MANAGER dev, PTR_PID_DATA pid 
  * @returns: OBDII_PACKET_MANAGER_STATUS
  **************************************************************/
 OBDII_PACKET_MANAGER_STATUS OBDII_Service( POBDII_PACKET_MANAGER dev );
+
+/**************************************************************
+ * Re-enable communication, this only needs to be called if the
+ * communication has been paused.
+ *
+ * @arguments: &OBDII_PACKET_MANAGER
+ *
+ * @returns: void
+ **************************************************************/
+void OBDII_Continue( POBDII_PACKET_MANAGER dev );
+
+/**************************************************************
+ * Pause the library from requesting data. This is important
+ * for when another device is present. This allows the system
+ * to save the current PID stream but stop communication.
+ *
+ * @arguments: &OBDII_PACKET_MANAGER
+ *
+ * @returns: void
+ **************************************************************/
+void OBDII_Pause( POBDII_PACKET_MANAGER dev );
 
 OBDII_STATUS OBDII_Add_Packet( POBDII_PACKET_MANAGER dev, uint16_t arbitration_id, uint8_t* packet_data );
 
