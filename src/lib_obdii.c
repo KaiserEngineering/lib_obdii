@@ -66,6 +66,10 @@ void OBDII_Initialize( POBDII_PACKET_MANAGER dev )
 
 OBDII_STATUS OBDII_add_PID_request( POBDII_PACKET_MANAGER dev, PTR_PID_DATA pid )
 {
+    /* Check if the PID is supported based on a length greater than 0 */
+    if( lookup_payload_length( pid->mode, pid->pid ) == 0 )
+        return OBDII_UNSUPPORTED_PID_REQ;
+
     /* Clear the packet generated flag to start packet regeneration */
     dev->status_flags &= ~OBDII_PACKET_GENERATED;
 
