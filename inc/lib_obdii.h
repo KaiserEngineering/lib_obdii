@@ -112,8 +112,9 @@ typedef enum _obdii_status {
     OBDII_UNSUPPORTED_CAN_PACKET = 0x2,  /* OBDII CAN packet cannot be interpreted */
     OBDII_PID_REQ_EMPTY          = 0x3,  /* No PIDs were requested */
     OBDII_IDLE                   = 0x4,  /* No PIDs have been requested yet */
-    OBDII_MAX_PIDS_REACHED       = 0x5,   /* The max number of PID requests have been reached */
+    OBDII_MAX_PIDS_REACHED       = 0x5,  /* The max number of PID requests have been reached */
     OBDII_PACKET_GEN_ERROR       = 0x6,
+    OBDII_UNSUPPORTED_PID_REQ    = 0x7
 } OBDII_STATUS, *POBDII_STATUS;
 
 
