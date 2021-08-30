@@ -158,7 +158,7 @@ OBDII_PACKET_MANAGER_STATUS OBDII_Service( POBDII_PACKET_MANAGER dev )
         else
         {
             /* The last message was received, send the next packet */
-            if( dev->init.transmit( dev->msg[dev->current_msg].frame[dev->msg[dev->current_msg].current_frame].buf , OBDII_DLC ) == 0 )
+            if( dev->init.transmit( dev->msg[dev->current_msg].header, dev->msg[dev->current_msg].frame[dev->msg[dev->current_msg].current_frame].buf , OBDII_DLC ) == 0 )
                 dev->diagnostic.tx_failure++;
 
             /* Indicate successful transmission */
@@ -218,8 +218,10 @@ OBDII_PACKET_MANAGER_STATUS OBDII_Service( POBDII_PACKET_MANAGER dev )
 
 OBDII_STATUS OBDII_Add_Packet( POBDII_PACKET_MANAGER dev, uint16_t arbitration_id, uint8_t* packet_data )
 {
+    dev->rx_id = arbitration_id;
+
     /* Verify the CAN packet is intended for the Digital Dash */
-    if( arbitration_id > 0x7E0 ) //TODO
+    if( arbitration_id > 0x700 ) //TODO
     {
         /* Number of bytes in the CAN packet that is not data */
         uint8_t num_supporting_bytes = OBDII_DLC;
@@ -299,7 +301,7 @@ OBDII_STATUS OBDII_Add_Packet( POBDII_PACKET_MANAGER dev, uint16_t arbitration_i
         if( dev->rx_remaining_bytes > 0 )
         {
             /* Generate flow control packet */
-            dev->init.transmit( flow_control_frame , OBDII_DLC );
+            dev->init.transmit( dev->msg[dev->current_msg].header, flow_control_frame , OBDII_DLC );
 
             refresh_timeout( dev );
         }
@@ -330,7 +332,7 @@ static OBDII_PROCESS_STATUS OBDII_Process_Packet( POBDII_PACKET_MANAGER dev )
 
     for( uint8_t pid_num = 0; pid_num < dev->num_pids; pid_num++ )
     {
-        if( dev->stream[pid_num]->mode == mode )
+        if( (dev->stream[pid_num]->mode == mode) & (dev->stream[pid_num]->header == dev->rx_id) )
         {
             if( lookup_payload_length( dev->stream[pid_num]->mode, dev->stream[pid_num]->pid ) > 0 )
             {
@@ -397,12 +399,17 @@ static OBDII_STATUS obdii_generate_PID_Request( POBDII_PACKET_MANAGER dev )
         for( uint8_t j = 0; j < OBDII_MAX_MSGS; j++ )
         {
             /* If a match is found there is no need to increment */
-            if( dev->stream[i]->mode == dev->msg[j].mode )
+            if( (dev->stream[i]->mode == dev->msg[j].mode)
+                    & (dev->stream[i]->header == dev->msg[j].header) )
                 break;
 
             /* No match found, add the mode to the next message struct */
             if( j == OBDII_MAX_MSGS - 1 )
-                dev->msg[dev->num_msgs++].mode = dev->stream[i]->mode;
+            {
+                dev->msg[dev->num_msgs].header = dev->stream[i]->header;
+                dev->msg[dev->num_msgs].mode = dev->stream[i]->mode;
+                dev->num_msgs++;
+            }
         }
     }
 
@@ -419,7 +426,8 @@ static OBDII_STATUS obdii_generate_PID_Request( POBDII_PACKET_MANAGER dev )
          *************************************************************************/
         for( uint8_t i = 0; i < dev->num_pids; i++ )
         {
-            if( dev->msg[msg].mode == dev->stream[i]->mode )
+            if( (dev->msg[msg].mode == dev->stream[i]->mode) &
+                    (dev->msg[msg].header == dev->stream[i]->header) )
                 num_bytes += (1U + ((dev->stream[i]->pid >> 8) || 0));
         }
 
@@ -453,7 +461,8 @@ static OBDII_STATUS obdii_generate_PID_Request( POBDII_PACKET_MANAGER dev )
          *************************************************************************/
         for( pid_count = 0; pid_count < dev->num_pids; pid_count++ )
         {
-            if( dev->msg[msg].mode == dev->stream[pid_count]->mode )
+            if( (dev->msg[msg].mode == dev->stream[pid_count]->mode) &
+                    (dev->msg[msg].header == dev->stream[pid_count]->header) )
             {
 
                 if( (dev->stream[pid_count]->pid >> 8) || 0 )
