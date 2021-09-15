@@ -387,6 +387,12 @@ static OBDII_STATUS obdii_generate_PID_Request( POBDII_PACKET_MANAGER dev )
     }
 
     /*************************************************************************
+     * Reset the current message to 0, this prevents accidentally sending a
+     * message that was not suppose to be sent.
+     **************************************************************************/
+    dev->current_msg = 0;
+
+    /*************************************************************************
      * Parse through each packet and initialize it to the determined header,
      * CAN bus mode and fill the packet buffer with 0x55.
      *************************************************************************/
