@@ -12,6 +12,7 @@
 #define LIB_OBDII_H_
 
 #include "stdio.h"
+#include "stdint.h"
 #include "string.h"
 #include "lib_pid.h"
 #include "lib_unit_conversion.h"
