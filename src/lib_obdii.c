@@ -360,6 +360,7 @@ static OBDII_PROCESS_STATUS OBDII_Process_Packet( POBDII_PACKET_MANAGER dev )
                     }
 
                     dev->stream[pid_num]->pid_value = get_pid_value( dev->stream[pid_num]->mode, dev->stream[pid_num]->pid, tmpDataBuf );
+                    convert_units( dev->stream[pid_num]->base_unit, dev->stream[pid_num]->pid_unit, &dev->stream[pid_num]->pid_value);
                     dev->stream[pid_num]->timestamp = obdii_tick;
 
                 } else {
