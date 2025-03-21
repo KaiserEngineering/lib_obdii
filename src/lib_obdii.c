@@ -67,7 +67,7 @@ void OBDII_Initialize( POBDII_PACKET_MANAGER dev )
 OBDII_STATUS OBDII_add_PID_request( POBDII_PACKET_MANAGER dev, PTR_PID_DATA pid )
 {
     /* Check if the PID is supported based on a length greater than 0 */
-    if( lookup_payload_length( pid->mode, pid->pid ) == 0 )
+    if( lookup_payload_length( pid->pid_uuid ) == 0 )
         return OBDII_UNSUPPORTED_PID_REQ;
 
     /* Clear the packet generated flag to start packet regeneration */
@@ -332,7 +332,7 @@ static OBDII_PROCESS_STATUS OBDII_Process_Packet( POBDII_PACKET_MANAGER dev )
     {
         if( dev->stream[pid_num]->mode == mode )
         {
-            if( lookup_payload_length( dev->stream[pid_num]->mode, dev->stream[pid_num]->pid ) > 0 )
+            if( lookup_payload_length( dev->stream[pid_num]->pid_uuid ) > 0 )
             {
                 uint16_t pid = 0;
                 uint8_t pid_len = 0;
@@ -352,14 +352,14 @@ static OBDII_PROCESS_STATUS OBDII_Process_Packet( POBDII_PACKET_MANAGER dev )
                     uint8_t tmpDataBuf[4] = {0, 0, 0, 0};
 
                     /* Save the PID's payload ( 1 to 4 bytes ) */
-                    for ( uint8_t data = 0; data < lookup_payload_length( dev->stream[pid_num]->mode, dev->stream[pid_num]->pid ) ; data++ )
+                    for ( uint8_t data = 0; data < lookup_payload_length( dev->stream[pid_num]->pid_uuid ) ; data++ )
                     {
                         tmpDataBuf[data] = dev->rx_buf[curByte];
 
                         curByte++;
                     }
 
-                    dev->stream[pid_num]->pid_value = get_pid_value( dev->stream[pid_num]->mode, dev->stream[pid_num]->pid, tmpDataBuf );
+                    dev->stream[pid_num]->pid_value = get_pid_value( dev->stream[pid_num]->pid_uuid, tmpDataBuf );
                     convert_units( dev->stream[pid_num]->base_unit, dev->stream[pid_num]->pid_unit, &dev->stream[pid_num]->pid_value);
                     dev->stream[pid_num]->timestamp = obdii_tick;
 
