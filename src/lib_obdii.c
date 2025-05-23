@@ -330,14 +330,14 @@ static OBDII_PROCESS_STATUS OBDII_Process_Packet( POBDII_PACKET_MANAGER dev )
 
     for( uint8_t pid_num = 0; pid_num < dev->num_pids; pid_num++ )
     {
-        if( dev->stream[pid_num]->mode == mode )
+        if( get_mode_by_uuid(dev->stream[pid_num]->pid_uuid) == mode )
         {
             if( lookup_payload_length( dev->stream[pid_num]->pid_uuid ) > 0 )
             {
                 uint16_t pid = 0;
                 uint8_t pid_len = 0;
 
-                pid_len = get_num_bytes( dev->stream[pid_num]->pid );
+                pid_len = get_num_bytes( get_pid_by_uuid(dev->stream[pid_num]->pid_uuid) );
 
                 if( pid_len == 1 ) {
                     pid = dev->rx_buf[curByte++];
@@ -347,7 +347,7 @@ static OBDII_PROCESS_STATUS OBDII_Process_Packet( POBDII_PACKET_MANAGER dev )
                     pid = ( pid << 8 ) | ( dev->rx_buf[curByte++] & 0xFF );
                 }
 
-                if( pid == dev->stream[pid_num]->pid )
+                if( pid == get_pid_by_uuid(dev->stream[pid_num]->pid_uuid) )
                 {
                     uint8_t tmpDataBuf[4] = {0, 0, 0, 0};
 
@@ -404,12 +404,12 @@ static OBDII_STATUS obdii_generate_PID_Request( POBDII_PACKET_MANAGER dev )
         for( uint8_t j = 0; j < OBDII_MAX_MSGS; j++ )
         {
             /* If a match is found there is no need to increment */
-            if( dev->stream[i]->mode == dev->msg[j].mode )
+            if( get_mode_by_uuid(dev->stream[i]->pid_uuid) == dev->msg[j].mode )
                 break;
 
             /* No match found, add the mode to the next message struct */
             if( j == OBDII_MAX_MSGS - 1 )
-                dev->msg[dev->num_msgs++].mode = dev->stream[i]->mode;
+                dev->msg[dev->num_msgs++].mode = get_mode_by_uuid(dev->stream[i]->pid_uuid);
         }
     }
 
@@ -426,8 +426,8 @@ static OBDII_STATUS obdii_generate_PID_Request( POBDII_PACKET_MANAGER dev )
          *************************************************************************/
         for( uint8_t i = 0; i < dev->num_pids; i++ )
         {
-            if( dev->msg[msg].mode == dev->stream[i]->mode )
-                num_bytes += (1U + ((dev->stream[i]->pid >> 8) || 0));
+            if( dev->msg[msg].mode == get_mode_by_uuid(dev->stream[i]->pid_uuid) )
+                num_bytes += (1U + ((get_pid_by_uuid(dev->stream[i]->pid_uuid) >> 8) || 0));
         }
 
         /*************************************************************************
@@ -460,22 +460,22 @@ static OBDII_STATUS obdii_generate_PID_Request( POBDII_PACKET_MANAGER dev )
          *************************************************************************/
         for( pid_count = 0; pid_count < dev->num_pids; pid_count++ )
         {
-            if( dev->msg[msg].mode == dev->stream[pid_count]->mode )
+            if( dev->msg[msg].mode == get_mode_by_uuid(dev->stream[pid_count]->pid_uuid) )
             {
 
-                if( (dev->stream[pid_count]->pid >> 8) || 0 )
+                if( (get_pid_by_uuid(dev->stream[pid_count]->pid_uuid) >> 8) || 0 )
                 {
                     /**************** PID byte 2 ****************/
-                    dev->msg[msg].frame[frame].buf[cur_byte] = (dev->stream[pid_count]->pid >> 8) & 0xFF;
+                    dev->msg[msg].frame[frame].buf[cur_byte] = (get_pid_by_uuid(dev->stream[pid_count]->pid_uuid) >> 8) & 0xFF;
 
                     /************* Increment Buffer *************/
                     next_byte( &frame, &cur_byte );
                 }
 
-                if( dev->stream[pid_count]->pid & 0xFF )
+                if( get_pid_by_uuid(dev->stream[pid_count]->pid_uuid) & 0xFF )
                 {
                     /**************** PID byte 1 ****************/
-                    dev->msg[msg].frame[frame].buf[cur_byte] = dev->stream[pid_count]->pid & 0xFF;
+                    dev->msg[msg].frame[frame].buf[cur_byte] = get_pid_by_uuid(dev->stream[pid_count]->pid_uuid) & 0xFF;
 
                     /************* Increment Buffer *************/
                     next_byte( &frame, &cur_byte );
