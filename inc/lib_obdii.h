@@ -75,7 +75,7 @@
 
 #define MULTI_FRAME_MODE_POS                       0x02
 
-typedef uint8_t (*TRANSMIT_DATA)(uint8_t *data, uint8_t len);
+typedef uint8_t (*TRANSMIT_OBDII_DATA)(uint8_t *data, uint8_t len);
 
 typedef enum _obdii_packet_manager_status {
     OBDII_PM_CRITICAL_ERROR,
@@ -152,7 +152,7 @@ typedef struct _obdii_init {
 
     uint32_t timeout;
 
-    TRANSMIT_DATA transmit;
+    TRANSMIT_OBDII_DATA transmit;
 
     uint32_t arbitration_ID;       /* Arbitration identifier */
 
