@@ -233,6 +233,25 @@ OBDII_STATUS OBDII_remove_PID_request( POBDII_PACKET_MANAGER dev, PTR_PID_DATA p
  **************************************************************/
 OBDII_PACKET_MANAGER_STATUS OBDII_Service( POBDII_PACKET_MANAGER dev );
 
+/*----------------------------------------------------------------------------------*
+ * This function performs a strict byte-for-byte comparison of @p packet_data
+ * against the library’s FC-CTS template:
+ *   { 0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }
+ *
+ * Where:
+ *   - 0x30 = PCI: Flow Control (0x3 << 4) with FlowStatus = CTS (0x0)
+ *   - Byte1 (BS)  = 0x00 → block size (no limit)
+ *   - Byte2 (STmin) = 0x00 → minimum separation time
+ *   - Remaining bytes = 0x00 (reserved)
+ *
+ * @param[in]  packet_data  Pointer to an 8-byte CAN payload (DLC == 8). Must not be NULL.
+ *
+ * @return  1 if the payload matches exactly; 0 otherwise (including NULL pointer).
+ *
+ * @see ISO 15765-2 (ISO-TP), Flow Control (FC) frame format.
+ *----------------------------------------------------------------------------------*/
+uint8_t is_flow_control_frame( uint8_t* packet_data );
+
 /**************************************************************
  * Re-enable communication, this only needs to be called if the
  * communication has been paused.

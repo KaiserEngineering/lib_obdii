@@ -31,6 +31,13 @@ uint32_t obdii_tick = 0;
  * then the pid is a single byte, otherwise it is 2 bytes.               */
 static uint8_t get_num_bytes( uint16_t pid ) { return ( 1U + ( (pid >> 8) || 0) ); }
 
+/* Checks to see if the packet is a flow control frame */
+uint8_t is_flow_control_frame( uint8_t* packet_data )
+{
+    if (packet_data == NULL) return 0;
+    return (memcmp(packet_data, flow_control_frame, OBDII_DLC) == 0) ? 1u : 0u;
+}
+
 /* Re-enable communication, this only needs to be called if the          *
  * communication has been paused.                                        */
 void OBDII_Continue( POBDII_PACKET_MANAGER dev )
@@ -219,7 +226,7 @@ OBDII_PACKET_MANAGER_STATUS OBDII_Service( POBDII_PACKET_MANAGER dev )
 OBDII_STATUS OBDII_Add_Packet( POBDII_PACKET_MANAGER dev, uint16_t arbitration_id, uint8_t* packet_data )
 {
     /* Verify the CAN packet is intended for the Digital Dash */
-    if( arbitration_id > 0x7E0 ) //TODO
+    if( arbitration_id == 0x7E8 ) //TODO
     {
         /* Number of bytes in the CAN packet that is not data */
         uint8_t num_supporting_bytes = OBDII_DLC;
