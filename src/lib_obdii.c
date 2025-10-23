@@ -25,6 +25,8 @@ static void clear_pid_entries( POBDII_PACKET_MANAGER dev );
 
 static uint8_t flow_control_frame[OBDII_DLC] = {0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
+#define OBDII_PID_NOT_FOUND   ((OBDII_STATUS)0x85)
+
 uint32_t obdii_tick = 0;
 
 /* Returns the number of bytes a PID request has, if the first byte is 0 *
@@ -71,56 +73,70 @@ void OBDII_Initialize( POBDII_PACKET_MANAGER dev )
     dev->obdii_time = obdii_tick;
 }
 
-OBDII_STATUS OBDII_add_PID_request( POBDII_PACKET_MANAGER dev, PTR_PID_DATA pid )
+static int8_t obdll_find_pid_index(POBDII_PACKET_MANAGER dev, PTR_PID_DATA pid) {
+    if (!dev || !pid) return -1;
+    for (uint8_t i = 0; i < dev->num_pids; i++) {
+        if (dev->stream[i] == pid) return (int8_t)i;
+    }
+    return -1;
+}
+
+OBDII_STATUS OBDII_add_PID_request(POBDII_PACKET_MANAGER dev, PTR_PID_DATA pid)
 {
+    if (!dev || !pid) return OBDII_ERROR;
+
     /* Check if the PID is supported based on a length greater than 0 */
-    if( lookup_payload_length( pid->pid_uuid ) == 0 )
+    if (lookup_payload_length(pid->pid_uuid) == 0)
         return OBDII_UNSUPPORTED_PID_REQ;
 
-    /* Clear the packet generated flag to start packet regeneration */
-    dev->status_flags &= ~OBDII_PACKET_GENERATED;
+    /* Prevent duplicates */
+    if (obdll_find_pid_index(dev, pid) >= 0)
+        return OBDII_OK; /* already present; no regeneration needed */
 
     /* Verify another PID can be added */
-    if( dev->num_pids + 1 > OBDII_MAX_PIDS )
+    if (dev->num_pids >= OBDII_MAX_PIDS)
         return OBDII_MAX_PIDS_REACHED;
 
-    /* Add the PID request */
-    dev->stream[dev->num_pids++] = pid;
+    /* Add the PID request, then enable its state */
+    dev->stream[dev->num_pids] = pid;
+    dev->stream[dev->num_pids]->num_activated++;
+    dev->num_pids++;
 
-    /* Return a success */
+    /* Force packet regeneration */
+    dev->status_flags &= ~OBDII_PACKET_GENERATED;
+
     return OBDII_OK;
 }
 
-OBDII_STATUS OBDII_remove_PID_request( POBDII_PACKET_MANAGER dev, PTR_PID_DATA pid )
+OBDII_STATUS OBDII_remove_PID_request(POBDII_PACKET_MANAGER dev, PTR_PID_DATA pid)
 {
-    /* Clear the packet generated flag to start packet regeneration */
+    if (!dev || !pid) return OBDII_ERROR;
+
+    int8_t idx = obdll_find_pid_index(dev, pid);
+    if (idx < 0) return OBDII_PID_NOT_FOUND;
+
+    /* Disable the PID being removed BEFORE shifting */
+    PTR_PID_DATA removed = dev->stream[idx];
+    removed->num_activated = 0;
+
+    /* Shift down everything after idx */
+    for (uint8_t i = (uint8_t)idx; i + 1 < dev->num_pids; i++) {
+        dev->stream[i] = dev->stream[i + 1];
+    }
+    /* Clear last slot and decrement count */
+    dev->num_pids--;
+    dev->stream[dev->num_pids] = NULL;
+
+    /* Force packet regeneration */
     dev->status_flags &= ~OBDII_PACKET_GENERATED;
 
-    /* Cycle through all the PIDs to find which one must be removed */
-    for( uint8_t index = 0; index < dev->num_pids; index++ )
-    {
-        /* If found, pop that pointer reference */
-        if( dev->stream[index] == pid )
-        {
-            if( dev->num_pids > 1 )
-            {
-                for( uint8_t i = index; i < dev->num_pids; i++ ) {
-                    dev->stream[i] = dev->stream[i + 1];
-                    dev->stream[i + 1] = NULL;
-                }
-            }
-
-            /* Remove the PID */
-            if( dev->num_pids > 0 )
-                dev->num_pids--;
-
-            /* Return a success */
-            return OBDII_OK;
-        }
-    }
-
-    /* Return a success */
     return OBDII_OK;
+}
+
+OBDII_STATUS OBDII_resync(POBDII_PACKET_MANAGER dev)
+{
+    /* Force packet regeneration */
+    dev->status_flags &= ~OBDII_PACKET_GENERATED;
 }
 
 OBDII_PACKET_MANAGER_STATUS OBDII_Service( POBDII_PACKET_MANAGER dev )
@@ -384,118 +400,109 @@ static OBDII_PROCESS_STATUS OBDII_Process_Packet( POBDII_PACKET_MANAGER dev )
     return OBDII_PACKET_PROCESS_SUCCESS;
 }
 
-static OBDII_STATUS obdii_generate_PID_Request( POBDII_PACKET_MANAGER dev )
+static inline uint8_t pid_is_enabled(PTR_PID_DATA p)
+{
+    return (p != NULL) && (p->num_activated > 0);
+}
+
+static OBDII_STATUS obdii_generate_PID_Request(POBDII_PACKET_MANAGER dev)
 {
     /*************************************************************************
-     * Verify there are PID request.
-     ************************************************************************/
-    if( dev->num_pids <= 0 )
-    {
-        return OBDII_PID_REQ_EMPTY;
-    }
-
-    /*************************************************************************
-     * Reset the current message to 0, this prevents accidentally sending a
-     * message that was not suppose to be sent.
-     **************************************************************************/
-    dev->current_msg = 0;
-
-    /*************************************************************************
-     * Parse through each packet and initialize it to the determined header,
-     * CAN bus mode and fill the packet buffer with 0x55.
+     * Verify there are enabled PID requests.
      *************************************************************************/
-    clear_obdii_packets(dev);
+    if (!dev) return OBDII_ERROR;
 
-    for( uint8_t i = 0; i < dev->num_pids; i++ )
+    uint8_t enabled_count = 0;
+    for (uint8_t i = 0; i < dev->num_pids; i++)
+        if (pid_is_enabled(dev->stream[i])) enabled_count++;
+
+    if (enabled_count == 0)
+        return OBDII_PID_REQ_EMPTY;
+
+    /*************************************************************************
+     * Reset message index and clear packet buffers.
+     *************************************************************************/
+    dev->current_msg = 0;
+    clear_obdii_packets(dev);  // assumed to reset dev->num_msgs, frames, etc.
+
+    /*************************************************************************
+     * Build list of distinct modes present among ENABLED PIDs.
+     *************************************************************************/
+    for (uint8_t i = 0; i < dev->num_pids; i++)
     {
-        for( uint8_t j = 0; j < OBDII_MAX_MSGS; j++ )
-        {
-            /* If a match is found there is no need to increment */
-            if( get_mode_by_uuid(dev->stream[i]->pid_uuid) == dev->msg[j].mode )
-                break;
+        PTR_PID_DATA p = dev->stream[i];
+        if (!pid_is_enabled(p)) continue;
 
-            /* No match found, add the mode to the next message struct */
-            if( j == OBDII_MAX_MSGS - 1 )
-                dev->msg[dev->num_msgs++].mode = get_mode_by_uuid(dev->stream[i]->pid_uuid);
+        uint8_t mode_i = get_mode_by_uuid(p->pid_uuid);
+
+        uint8_t found = 0;
+        for (uint8_t j = 0; j < dev->num_msgs; j++) {
+            if (dev->msg[j].mode == mode_i) { found = 1; break; }
+        }
+
+        if (!found) {
+            if (dev->num_msgs >= OBDII_MAX_MSGS)
+                return OBDII_MAX_PIDS_REACHED;
+            dev->msg[dev->num_msgs++].mode = mode_i;
         }
     }
 
-    for(uint8_t msg = 0; msg < dev->num_msgs; msg++ )
+    /*************************************************************************
+     * For each mode, size and emit frames using only ENABLED PIDs.
+     *************************************************************************/
+    for (uint8_t msg = 0; msg < dev->num_msgs; msg++)
     {
-        uint8_t num_bytes = 1; //+1 for service
-        uint8_t pid_count = 0;
+        uint8_t num_bytes = 1; // +1 for service
         uint8_t cur_byte  = 0;
         uint8_t frame     = 0;
 
-        /*************************************************************************
-         * Parse through the PID array and determine the length of each PID.
-         * Populate the PID length in each typedef.
-         *************************************************************************/
-        for( uint8_t i = 0; i < dev->num_pids; i++ )
-        {
-            if( dev->msg[msg].mode == get_mode_by_uuid(dev->stream[i]->pid_uuid) )
-                num_bytes += (1U + ((get_pid_by_uuid(dev->stream[i]->pid_uuid) >> 8) || 0));
+        /* Compute total payload bytes (service + PIDs) */
+        for (uint8_t i = 0; i < dev->num_pids; i++) {
+            PTR_PID_DATA p = dev->stream[i];
+            if (!pid_is_enabled(p)) continue;
+            if (dev->msg[msg].mode != get_mode_by_uuid(p->pid_uuid)) continue;
+
+            uint16_t pid_word = get_pid_by_uuid(p->pid_uuid);
+            if ((pid_word >> 8) != 0) num_bytes += 1;   // high byte present
+            if ((pid_word & 0xFF) != 0) num_bytes += 1; // low byte present
         }
 
-        /*************************************************************************
-         * Determine if this will be a single frame request or multiframe
-         * request. This is directly related to the number of bytes in the packet
-         * and the size of the buffer.
-         *************************************************************************/
-        if( num_bytes < (OBDII_DLC - 1U) ) // -1 for length byte
-        {
-            /*************** Length ***************/
-            dev->msg[msg].frame[0].buf[cur_byte++] = num_bytes;
-
-            /**************** Mode ****************/
-            dev->msg[msg].frame[0].buf[cur_byte++] = dev->msg[msg].mode;
-        }
-        else  // Multi frame
-        {
-            /**************** Frame ****************/
-            dev->msg[msg].frame[0].buf[cur_byte++] = (frame | 0x10);
-
-            /*************** Length ***************/
-            dev->msg[msg].frame[0].buf[cur_byte++] = num_bytes;
-
-            /**************** Mode ****************/
-            dev->msg[msg].frame[0].buf[cur_byte++] = dev->msg[msg].mode;
+        /* Single vs. multi-frame header */
+        if (num_bytes < (OBDII_DLC - 1U)) { // -1 for length byte
+            dev->msg[msg].frame[0].buf[cur_byte++] = num_bytes;           // LEN
+            dev->msg[msg].frame[0].buf[cur_byte++] = dev->msg[msg].mode;  // MODE
+        } else {
+            dev->msg[msg].frame[0].buf[cur_byte++] = (frame | 0x10);      // FF
+            dev->msg[msg].frame[0].buf[cur_byte++] = num_bytes;           // LEN
+            dev->msg[msg].frame[0].buf[cur_byte++] = dev->msg[msg].mode;  // MODE
         }
 
-        /*************************************************************************
-         * Iterate through every single PID and fill the buffer.
-         *************************************************************************/
-        for( pid_count = 0; pid_count < dev->num_pids; pid_count++ )
+        /* Emit PIDs */
+        for (uint8_t i = 0; i < dev->num_pids; i++)
         {
-            if( dev->msg[msg].mode == get_mode_by_uuid(dev->stream[pid_count]->pid_uuid) )
-            {
+            PTR_PID_DATA p = dev->stream[i];
+            if (!pid_is_enabled(p)) continue;
+            if (dev->msg[msg].mode != get_mode_by_uuid(p->pid_uuid)) continue;
 
-                if( (get_pid_by_uuid(dev->stream[pid_count]->pid_uuid) >> 8) || 0 )
-                {
-                    /**************** PID byte 2 ****************/
-                    dev->msg[msg].frame[frame].buf[cur_byte] = (get_pid_by_uuid(dev->stream[pid_count]->pid_uuid) >> 8) & 0xFF;
+            uint16_t pid_word = get_pid_by_uuid(p->pid_uuid);
 
-                    /************* Increment Buffer *************/
-                    next_byte( &frame, &cur_byte );
-                }
-
-                if( get_pid_by_uuid(dev->stream[pid_count]->pid_uuid) & 0xFF )
-                {
-                    /**************** PID byte 1 ****************/
-                    dev->msg[msg].frame[frame].buf[cur_byte] = get_pid_by_uuid(dev->stream[pid_count]->pid_uuid) & 0xFF;
-
-                    /************* Increment Buffer *************/
-                    next_byte( &frame, &cur_byte );
-                }
-
-                if ( (frame > 0) & (cur_byte == 1) )
-                {
-                    dev->msg[msg].frame[frame].buf[0] = frame | 0x20;
-                }
+            if ((pid_word >> 8) != 0) {
+                dev->msg[msg].frame[frame].buf[cur_byte] = (pid_word >> 8) & 0xFF;
+                next_byte(&frame, &cur_byte);
             }
 
-            dev->msg[msg].num_frames = frame + 1;
+            if ((pid_word & 0xFF) != 0) {
+                dev->msg[msg].frame[frame].buf[cur_byte] = pid_word & 0xFF;
+                next_byte(&frame, &cur_byte);
+            }
+
+            /* If we advanced to a new frame, patch its PCI byte to CF */
+            if ((frame > 0) && (cur_byte == 1)) {
+                dev->msg[msg].frame[frame].buf[0] = frame | 0x20;
+            }
         }
+
+        dev->msg[msg].num_frames = frame + 1;
     }
 
     return OBDII_OK;

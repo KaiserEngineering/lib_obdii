@@ -172,7 +172,7 @@ typedef struct _obdii_packet_manager {
 
     uint32_t obdii_time;
 
-    uint16_t status_flags;
+    volatile uint16_t status_flags;
         #define OBDII_PACKET_GENERATED  0x1  /* The OBD-II packet is up to date with the latest PIDs */
         #define OBDII_PENDING_RESPONSE  0x2  /* A CAN packet has been sent and is waiting for a response */
         #define OBDII_RESPONSE_RECEIVED 0x4  /* A sent message received a response */
@@ -221,6 +221,7 @@ OBDII_STATUS OBDII_add_PID_request( POBDII_PACKET_MANAGER dev, PTR_PID_DATA pid 
 
 OBDII_STATUS OBDII_remove_PID_request( POBDII_PACKET_MANAGER dev, PTR_PID_DATA pid );
 
+OBDII_STATUS OBDII_resync(POBDII_PACKET_MANAGER dev);
 
 /**************************************************************
  * OBD-II service must be called routinely, ideally in the main
