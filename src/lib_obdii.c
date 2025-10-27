@@ -99,7 +99,6 @@ OBDII_STATUS OBDII_add_PID_request(POBDII_PACKET_MANAGER dev, PTR_PID_DATA pid)
 
     /* Add the PID request, then enable its state */
     dev->stream[dev->num_pids] = pid;
-    dev->stream[dev->num_pids]->num_activated++;
     dev->num_pids++;
 
     /* Force packet regeneration */
@@ -114,10 +113,6 @@ OBDII_STATUS OBDII_remove_PID_request(POBDII_PACKET_MANAGER dev, PTR_PID_DATA pi
 
     int8_t idx = obdll_find_pid_index(dev, pid);
     if (idx < 0) return OBDII_PID_NOT_FOUND;
-
-    /* Disable the PID being removed BEFORE shifting */
-    PTR_PID_DATA removed = dev->stream[idx];
-    removed->num_activated = 0;
 
     /* Shift down everything after idx */
     for (uint8_t i = (uint8_t)idx; i + 1 < dev->num_pids; i++) {
@@ -137,6 +132,8 @@ OBDII_STATUS OBDII_resync(POBDII_PACKET_MANAGER dev)
 {
     /* Force packet regeneration */
     dev->status_flags &= ~OBDII_PACKET_GENERATED;
+
+    return OBDII_OK;
 }
 
 OBDII_PACKET_MANAGER_STATUS OBDII_Service( POBDII_PACKET_MANAGER dev )
