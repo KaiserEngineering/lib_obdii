@@ -340,6 +340,11 @@ OBDII_STATUS OBDII_Add_Packet( POBDII_PACKET_MANAGER dev, uint16_t arbitration_i
     return OBDII_OK;
 }
 
+static inline uint8_t pid_is_enabled(PTR_PID_DATA p)
+{
+    return (p != NULL) && (p->num_activated > 0);
+}
+
 static OBDII_PROCESS_STATUS OBDII_Process_Packet( POBDII_PACKET_MANAGER dev )
 {
     uint8_t curByte = 0;
@@ -350,56 +355,54 @@ static OBDII_PROCESS_STATUS OBDII_Process_Packet( POBDII_PACKET_MANAGER dev )
 
     for( uint8_t pid_num = 0; pid_num < dev->num_pids; pid_num++ )
     {
-        if( get_mode_by_uuid(dev->stream[pid_num]->pid_uuid) == mode )
-        {
-            if( lookup_payload_length( dev->stream[pid_num]->pid_uuid ) > 0 )
-            {
-                uint16_t pid = 0;
-                uint8_t pid_len = 0;
+    	if( pid_is_enabled(dev->stream[pid_num]) )
+    	{
+			if( get_mode_by_uuid(dev->stream[pid_num]->pid_uuid) == mode )
+			{
+				if( lookup_payload_length( dev->stream[pid_num]->pid_uuid ) > 0 )
+				{
+					uint16_t pid = 0;
+					uint8_t pid_len = 0;
 
-                pid_len = get_num_bytes( get_pid_by_uuid(dev->stream[pid_num]->pid_uuid) );
+					pid_len = get_num_bytes( get_pid_by_uuid(dev->stream[pid_num]->pid_uuid) );
 
-                if( pid_len == 1 ) {
-                    pid = dev->rx_buf[curByte++];
-                }
-                else if ( pid_len == 2 ) {
-                    pid = dev->rx_buf[curByte++];
-                    pid = ( pid << 8 ) | ( dev->rx_buf[curByte++] & 0xFF );
-                }
+					if( pid_len == 1 ) {
+						pid = dev->rx_buf[curByte++];
+					}
+					else if ( pid_len == 2 ) {
+						pid = dev->rx_buf[curByte++];
+						pid = ( pid << 8 ) | ( dev->rx_buf[curByte++] & 0xFF );
+					}
 
-                if( pid == get_pid_by_uuid(dev->stream[pid_num]->pid_uuid) )
-                {
-                    uint8_t tmpDataBuf[4] = {0, 0, 0, 0};
+					if( pid == get_pid_by_uuid(dev->stream[pid_num]->pid_uuid) )
+					{
+						uint8_t tmpDataBuf[4] = {0, 0, 0, 0};
 
-                    /* Save the PID's payload ( 1 to 4 bytes ) */
-                    for ( uint8_t data = 0; data < lookup_payload_length( dev->stream[pid_num]->pid_uuid ) ; data++ )
-                    {
-                        tmpDataBuf[data] = dev->rx_buf[curByte];
+						/* Save the PID's payload ( 1 to 4 bytes ) */
+						for ( uint8_t data = 0; data < lookup_payload_length( dev->stream[pid_num]->pid_uuid ) ; data++ )
+						{
+							tmpDataBuf[data] = dev->rx_buf[curByte];
 
-                        curByte++;
-                    }
+							curByte++;
+						}
 
-                    dev->stream[pid_num]->pid_value = get_pid_value( dev->stream[pid_num]->pid_uuid, tmpDataBuf );
-                    convert_units( dev->stream[pid_num]->base_unit, dev->stream[pid_num]->pid_unit, &dev->stream[pid_num]->pid_value);
-                    dev->stream[pid_num]->timestamp = obdii_tick;
+						dev->stream[pid_num]->pid_value = get_pid_value( dev->stream[pid_num]->pid_uuid, tmpDataBuf );
+						convert_units( dev->stream[pid_num]->base_unit, dev->stream[pid_num]->pid_unit, &dev->stream[pid_num]->pid_value);
+						dev->stream[pid_num]->timestamp = obdii_tick;
 
-                } else {
-                    return OBDII_CAN_PCKT_MISALIGNED;
-                }
-            } else {
-                return OBDII_PID_NOT_SUPPORTED;
-            }
-        }
+					} else {
+						return OBDII_CAN_PCKT_MISALIGNED;
+					}
+				} else {
+					return OBDII_PID_NOT_SUPPORTED;
+				}
+			}
+    	}
     }
 
     refresh_timeout(dev);
 
     return OBDII_PACKET_PROCESS_SUCCESS;
-}
-
-static inline uint8_t pid_is_enabled(PTR_PID_DATA p)
-{
-    return (p != NULL) && (p->num_activated > 0);
 }
 
 static OBDII_STATUS obdii_generate_PID_Request(POBDII_PACKET_MANAGER dev)
