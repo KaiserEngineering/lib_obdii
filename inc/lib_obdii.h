@@ -11,6 +11,10 @@
 #ifndef LIB_OBDII_H_
 #define LIB_OBDII_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
@@ -277,5 +281,9 @@ void OBDII_Pause( POBDII_PACKET_MANAGER dev );
 OBDII_STATUS OBDII_Add_Packet( POBDII_PACKET_MANAGER dev, uint16_t arbitration_id, uint8_t* packet_data );
 
 float OBDII_Get_Value_Byte_PID( POBDII_PACKET_MANAGER dev, uint16_t pid );
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* LIB_OBDII_H_ */
