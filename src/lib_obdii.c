@@ -497,7 +497,7 @@ static OBDII_STATUS obdii_generate_PID_Request(POBDII_PACKET_MANAGER dev)
             }
 
             /* If we advanced to a new frame, patch its PCI byte to CF */
-            if ((frame > 0) && (cur_byte == 1)) {
+            if ((frame > 0) && (cur_byte <= 2)) {
                 dev->msg[msg].frame[frame].buf[0] = frame | 0x20;
             }
         }
