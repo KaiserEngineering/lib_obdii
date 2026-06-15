@@ -386,9 +386,8 @@ static OBDII_PROCESS_STATUS OBDII_Process_Packet( POBDII_PACKET_MANAGER dev )
 							curByte++;
 						}
 
-						dev->stream[pid_num]->pid_value = get_pid_value( dev->stream[pid_num]->pid_uuid, tmpDataBuf );
-						convert_units( dev->stream[pid_num]->base_unit, dev->stream[pid_num]->pid_unit, &dev->stream[pid_num]->pid_value);
-						dev->stream[pid_num]->timestamp = obdii_tick;
+						float pid_value = get_pid_value( dev->stream[pid_num]->pid_uuid, tmpDataBuf );
+                        update_pid_data(dev->stream[pid_num], pid_value, obdii_tick);
 
 					} else {
 						return OBDII_CAN_PCKT_MISALIGNED;
