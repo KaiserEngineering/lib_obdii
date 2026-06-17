@@ -1,5 +1,5 @@
 idf_component_register(
-    SRCS "src/lib_obdii.c"
+    SRCS "src/lib_obdii.c" "src/isotp.c"
     INCLUDE_DIRS "inc"
     REQUIRES lib_pid lib_unit_conversion
 )

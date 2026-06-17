@@ -18,12 +18,12 @@ static void next_byte( uint8_t *frame, uint8_t *cur_byte );
 static OBDII_STATUS obdii_generate_PID_Request( POBDII_PACKET_MANAGER dev );
 static void clear_obdii_packets( POBDII_PACKET_MANAGER dev );
 static void clear_diagnostics( POBDII_PACKET_MANAGER dev );
-static void flush_obdii_rx_buf( POBDII_PACKET_MANAGER dev );
 static void refresh_timeout( POBDII_PACKET_MANAGER dev );
 static OBDII_PROCESS_STATUS OBDII_Process_Packet( POBDII_PACKET_MANAGER dev );
 static void clear_pid_entries( POBDII_PACKET_MANAGER dev );
-
-static uint8_t flow_control_frame[OBDII_DLC] = {0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+static PTR_PID_DATA find_response_pid( POBDII_PACKET_MANAGER dev, uint8_t mode, uint8_t *rx_buf, uint16_t rx_len, uint8_t cur_byte, uint8_t *pid_len );
+static uint8_t obdii_pid_pack_limit( uint8_t mode );
+static OBDII_STATUS obdii_add_pid_to_request_msg( POBDII_PACKET_MANAGER dev, PTR_PID_DATA pid );
 
 #define OBDII_PID_NOT_FOUND   ((OBDII_STATUS)0x85)
 
@@ -32,13 +32,6 @@ uint32_t obdii_tick = 0;
 /* Returns the number of bytes a PID request has, if the first byte is 0 *
  * then the pid is a single byte, otherwise it is 2 bytes.               */
 static uint8_t get_num_bytes( uint16_t pid ) { return ( 1U + ( (pid >> 8) || 0) ); }
-
-/* Checks to see if the packet is a flow control frame */
-uint8_t is_flow_control_frame( uint8_t* packet_data )
-{
-    if (packet_data == NULL) return 0;
-    return (memcmp(packet_data, flow_control_frame, OBDII_DLC) == 0) ? 1u : 0u;
-}
 
 /* Re-enable communication, this only needs to be called if the          *
  * communication has been paused.                                        */
@@ -62,6 +55,7 @@ void OBDII_Pause( POBDII_PACKET_MANAGER dev )
     /* Clear the pending message flag since communication has paused and *
      * the packet will be lost.                                          */
     dev->status_flags &= ~OBDII_PENDING_RESPONSE;
+    ISOTP_Reset(&dev->isotp);
 }
 
 void OBDII_Initialize( POBDII_PACKET_MANAGER dev )
@@ -70,6 +64,7 @@ void OBDII_Initialize( POBDII_PACKET_MANAGER dev )
     clear_obdii_packets(dev);
     clear_diagnostics(dev);
     clear_pid_entries(dev);
+    ISOTP_Initialize(&dev->isotp);
     dev->obdii_time = obdii_tick;
 }
 
@@ -160,6 +155,7 @@ OBDII_PACKET_MANAGER_STATUS OBDII_Service( POBDII_PACKET_MANAGER dev )
            {
                /* If so, clear the pending message flag in order to re-send the data */
                dev->status_flags &= ~OBDII_PENDING_RESPONSE;
+               ISOTP_Reset(&dev->isotp);
 
                /* Abort the tx message and increment the transmission abort counter */
                dev->diagnostic.tx_abort_count++;
@@ -241,97 +237,26 @@ OBDII_STATUS OBDII_Add_Packet( POBDII_PACKET_MANAGER dev, uint16_t arbitration_i
     /* Verify the CAN packet is intended for the Digital Dash */
     if( arbitration_id == 0x7E8 ) //TODO
     {
-        /* Number of bytes in the CAN packet that is not data */
-        uint8_t num_supporting_bytes = OBDII_DLC;
+        ISOTP_STATUS status = ISOTP_Add_Frame(&dev->isotp, packet_data, OBDII_DLC);
 
-        /* Check if packet is single frame */
-        if( ( packet_data[0] & ISO_15765_2_FRAME_TYPE_MASK ) == ISO_15765_2_SINGLE_FRAME )
+        if( status == ISOTP_FLOW_CONTROL_REQUIRED )
         {
-            /* New message, reset buffer */
-            flush_obdii_rx_buf(dev);
-
-            /* Begin counting how many more bytes are expected */
-            dev->rx_remaining_bytes = ( packet_data[0] & ISO_15765_2_BYTE0_SIZE_MASK );
-
-            /* First byte has been received */
-            dev->rx_remaining_bytes--;
-
-            /* Number of bytes in the CAN packet that is not data */
-            num_supporting_bytes = CAN_SINGLE_FRAME_SUPPORTING_BYTES;
-
-            /* Save the mode byte */
-            dev->rx_buf[ dev->rx_byte_count++ ] = packet_data[CAN_SINGLE_FRAME_MODE_POS];
-        }
-
-        /* Check if packet is first frame */
-        else if ( ( packet_data[0] & ISO_15765_2_FRAME_TYPE_MASK ) == ISO_15765_2_FIRST_FRAME_FRAME )
-        {
-            /* New message, reset buffer */
-            flush_obdii_rx_buf(dev);
-
-            /* Begin counting how many more bytes are expected */
-            dev->rx_remaining_bytes = ( ( packet_data[0] & ISO_15765_2_BYTE0_SIZE_MASK) << 8 ) | ( packet_data[1] & ISO_15765_2_BYTE1_SIZE_MASK );
-
-            /* First byte has been received */
-            dev->rx_remaining_bytes--;
-
-            /* Number of bytes in the CAN packet that is not data */
-            num_supporting_bytes = CAN_FIRST_FRAME_SUPPORTING_BYTES;
-
-            /* Save the mode byte */
-            dev->rx_buf[ dev->rx_byte_count++ ] = packet_data[MULTI_FRAME_MODE_POS];
-        }
-
-        /* Check if packet is consecutive frame */
-        else if ( ( packet_data[0] & ISO_15765_2_FRAME_TYPE_MASK ) == ISO_15765_2_CONNSECUTIVE_FRAME )
-        {
-            /* Number of bytes in the CAN packet that is not data */
-            num_supporting_bytes = CAN_CONNSECUTIVE_FRAME_SUPPORTING_BYTES;
-        }
-
-        /* Check if packet is flow control frame */
-        else if ( ( packet_data[0] & ISO_15765_2_FRAME_TYPE_MASK ) == ISO_15765_2_FLOW_CONTROL_FRAME )
-        {
-            /* Number of bytes in the CAN packet that is not data */
-            num_supporting_bytes = CAN_FLOW_CONTROL_FRAME_SUPPORTING_BYTES;
-        }
-
-        /* Oh no! What happened!? */
-        else {
-            return OBDII_UNSUPPORTED_CAN_PACKET;
-        }
-
-        /* Copy data to the RX buffer */
-        for( uint8_t i = num_supporting_bytes; i < OBDII_DLC; i++ )
-        {
-            /* More bytes expected */
-            if( dev->rx_remaining_bytes > 0 )
-            {
-                /* Copy bytes to RX buffer */
-                dev->rx_buf[ dev->rx_byte_count++ ] = packet_data[i];
-
-                /* Decrement the remaining bytes */
-                dev->rx_remaining_bytes--;
-            }
-        }
-
-        /* Determine if a flow control message is necessary */
-        if( dev->rx_remaining_bytes > 0 )
-        {
-            /* Generate flow control packet */
-            dev->init.transmit( flow_control_frame , OBDII_DLC );
-
+            ISOTP_Send_Flow_Control(dev->init.transmit);
             refresh_timeout( dev );
         }
-
-        /* See if all of the bytes have been received */
-        else if ( dev->rx_remaining_bytes <= 0 )
+        else if( status == ISOTP_COMPLETE )
         {
             /* Indicate a full CAN Packet has been received */
             dev->status_flags &= ~OBDII_PENDING_RESPONSE;
 
             /* Indicate that the full CAN packet should be processed */
             dev->status_flags |= OBDII_RESPONSE_RECEIVED;
+        }
+        else if( (status == ISOTP_ERROR) || (status == ISOTP_UNSUPPORTED_FRAME) || (status == ISOTP_OVERFLOW) || (status == ISOTP_SEQUENCE_ERROR) )
+        {
+            dev->diagnostic.rx_abort_count++;
+            dev->diagnostic.error = (uint8_t)status;
+            return OBDII_UNSUPPORTED_CAN_PACKET;
         }
 
     } else if ( arbitration_id == 0x7E0 ) {
@@ -345,63 +270,134 @@ static inline uint8_t pid_is_enabled(PTR_PID_DATA p)
     return (p != NULL) && (p->num_activated > 0);
 }
 
+static uint8_t obdii_pid_pack_limit( uint8_t mode )
+{
+    uint8_t limit = OBDII_DEFAULT_PIDS_PER_REQUEST;
+
+    if( mode == MODE1 )
+        limit = OBDII_MODE1_PIDS_PER_REQUEST;
+    else if( mode == MODE22 )
+        limit = OBDII_MODE22_PIDS_PER_REQUEST;
+
+    return (limit == 0U) ? 1U : limit;
+}
+
+static OBDII_STATUS obdii_add_pid_to_request_msg( POBDII_PACKET_MANAGER dev, PTR_PID_DATA pid )
+{
+    uint8_t mode = get_mode_by_uuid(pid->pid_uuid);
+    uint8_t limit = obdii_pid_pack_limit(mode);
+
+    for( uint8_t msg = 0; msg < dev->num_msgs; msg++ )
+    {
+        if( dev->msg[msg].mode != mode )
+            continue;
+
+        if( dev->msg[msg].num_pid_filters >= limit )
+            continue;
+
+        dev->msg[msg].pid_filter[dev->msg[msg].num_pid_filters] = pid;
+        dev->msg[msg].num_pid_filters++;
+        return OBDII_OK;
+    }
+
+    if( dev->num_msgs >= OBDII_MAX_MSGS )
+        return OBDII_MAX_PIDS_REACHED;
+
+    dev->msg[dev->num_msgs].mode = mode;
+    dev->msg[dev->num_msgs].pid_filter[0] = pid;
+    dev->msg[dev->num_msgs].num_pid_filters = 1;
+    dev->num_msgs++;
+
+    return OBDII_OK;
+}
+
 static OBDII_PROCESS_STATUS OBDII_Process_Packet( POBDII_PACKET_MANAGER dev )
 {
     uint8_t curByte = 0;
+    uint8_t *rx_buf = ISOTP_Get_Payload(&dev->isotp);
+    uint16_t rx_len = ISOTP_Get_Payload_Length(&dev->isotp);
 
     refresh_timeout( dev );
 
-    uint8_t mode = dev->rx_buf[curByte++] - 0x40;
+    if( (rx_buf == 0) || (rx_len == 0) )
+        return OBDII_CAN_PCKT_MISALIGNED;
 
-    for( uint8_t pid_num = 0; pid_num < dev->num_pids; pid_num++ )
+    if( rx_buf[curByte] == 0x7F )
+        return OBDII_PID_NOT_SUPPORTED;
+
+    uint8_t mode = rx_buf[curByte++] - 0x40;
+
+    while( curByte < rx_len )
     {
-    	if( pid_is_enabled(dev->stream[pid_num]) )
-    	{
-			if( get_mode_by_uuid(dev->stream[pid_num]->pid_uuid) == mode )
-			{
-				if( lookup_payload_length( dev->stream[pid_num]->pid_uuid ) > 0 )
-				{
-					uint16_t pid = 0;
-					uint8_t pid_len = 0;
+        uint8_t pid_len = 0;
+        PTR_PID_DATA pid = find_response_pid(dev, mode, rx_buf, rx_len, curByte, &pid_len);
 
-					pid_len = get_num_bytes( get_pid_by_uuid(dev->stream[pid_num]->pid_uuid) );
+        if( pid == NULL )
+            return OBDII_CAN_PCKT_MISALIGNED;
 
-					if( pid_len == 1 ) {
-						pid = dev->rx_buf[curByte++];
-					}
-					else if ( pid_len == 2 ) {
-						pid = dev->rx_buf[curByte++];
-						pid = ( pid << 8 ) | ( dev->rx_buf[curByte++] & 0xFF );
-					}
+        curByte += pid_len;
 
-					if( pid == get_pid_by_uuid(dev->stream[pid_num]->pid_uuid) )
-					{
-						uint8_t tmpDataBuf[4] = {0, 0, 0, 0};
+        uint8_t payload_len = lookup_payload_length( pid->pid_uuid );
 
-						/* Save the PID's payload ( 1 to 4 bytes ) */
-						for ( uint8_t data = 0; data < lookup_payload_length( dev->stream[pid_num]->pid_uuid ) ; data++ )
-						{
-							tmpDataBuf[data] = dev->rx_buf[curByte];
+        if( payload_len == 0 )
+            return OBDII_PID_NOT_SUPPORTED;
 
-							curByte++;
-						}
+        if( (curByte + payload_len) > rx_len )
+            return OBDII_CAN_PCKT_MISALIGNED;
 
-						float pid_value = get_pid_value( dev->stream[pid_num]->pid_uuid, tmpDataBuf );
-                        update_pid_data(dev->stream[pid_num], pid_value, obdii_tick);
+        uint8_t tmpDataBuf[4] = {0, 0, 0, 0};
 
-					} else {
-						return OBDII_CAN_PCKT_MISALIGNED;
-					}
-				} else {
-					return OBDII_PID_NOT_SUPPORTED;
-				}
-			}
-    	}
+        for ( uint8_t data = 0; data < payload_len ; data++ )
+            tmpDataBuf[data] = rx_buf[curByte++];
+
+        float pid_value = get_pid_value( pid->pid_uuid, tmpDataBuf );
+        update_pid_data(pid, pid_value, obdii_tick);
     }
 
     refresh_timeout(dev);
 
     return OBDII_PACKET_PROCESS_SUCCESS;
+}
+
+static PTR_PID_DATA find_response_pid( POBDII_PACKET_MANAGER dev, uint8_t mode, uint8_t *rx_buf, uint16_t rx_len, uint8_t cur_byte, uint8_t *pid_len )
+{
+    for( uint8_t pid_num = 0; pid_num < dev->num_pids; pid_num++ )
+    {
+        PTR_PID_DATA pid = dev->stream[pid_num];
+
+        if( !pid_is_enabled(pid) )
+            continue;
+
+        if( get_mode_by_uuid(pid->pid_uuid) != mode )
+            continue;
+
+        uint16_t pid_word = get_pid_by_uuid(pid->pid_uuid);
+        uint8_t len = get_num_bytes(pid_word);
+
+        if( (cur_byte + len) > rx_len )
+            continue;
+
+        if( len == 1 )
+        {
+            if( rx_buf[cur_byte] == (pid_word & 0xFF) )
+            {
+                *pid_len = len;
+                return pid;
+            }
+        }
+        else if( len == 2 )
+        {
+            uint16_t response_pid = ((uint16_t)rx_buf[cur_byte] << 8) | (uint16_t)rx_buf[cur_byte + 1];
+
+            if( response_pid == pid_word )
+            {
+                *pid_len = len;
+                return pid;
+            }
+        }
+    }
+
+    return NULL;
 }
 
 static OBDII_STATUS obdii_generate_PID_Request(POBDII_PACKET_MANAGER dev)
@@ -425,25 +421,16 @@ static OBDII_STATUS obdii_generate_PID_Request(POBDII_PACKET_MANAGER dev)
     clear_obdii_packets(dev);  // assumed to reset dev->num_msgs, frames, etc.
 
     /*************************************************************************
-     * Build list of distinct modes present among ENABLED PIDs.
+     * Build request list using the per-mode packing limits.
      *************************************************************************/
     for (uint8_t i = 0; i < dev->num_pids; i++)
     {
         PTR_PID_DATA p = dev->stream[i];
         if (!pid_is_enabled(p)) continue;
 
-        uint8_t mode_i = get_mode_by_uuid(p->pid_uuid);
-
-        uint8_t found = 0;
-        for (uint8_t j = 0; j < dev->num_msgs; j++) {
-            if (dev->msg[j].mode == mode_i) { found = 1; break; }
-        }
-
-        if (!found) {
-            if (dev->num_msgs >= OBDII_MAX_MSGS)
-                return OBDII_MAX_PIDS_REACHED;
-            dev->msg[dev->num_msgs++].mode = mode_i;
-        }
+        OBDII_STATUS status = obdii_add_pid_to_request_msg(dev, p);
+        if( status != OBDII_OK )
+            return status;
     }
 
     /*************************************************************************
@@ -454,50 +441,51 @@ static OBDII_STATUS obdii_generate_PID_Request(POBDII_PACKET_MANAGER dev)
         uint8_t num_bytes = 1; // +1 for service
         uint8_t cur_byte  = 0;
         uint8_t frame     = 0;
+        uint8_t payload_bytes_written = 1;
 
         /* Compute total payload bytes (service + PIDs) */
-        for (uint8_t i = 0; i < dev->num_pids; i++) {
-            PTR_PID_DATA p = dev->stream[i];
-            if (!pid_is_enabled(p)) continue;
-            if (dev->msg[msg].mode != get_mode_by_uuid(p->pid_uuid)) continue;
-
+        for (uint8_t i = 0; i < dev->msg[msg].num_pid_filters; i++) {
+            PTR_PID_DATA p = dev->msg[msg].pid_filter[i];
             uint16_t pid_word = get_pid_by_uuid(p->pid_uuid);
             if ((pid_word >> 8) != 0) num_bytes += 1;   // high byte present
             if ((pid_word & 0xFF) != 0) num_bytes += 1; // low byte present
         }
 
         /* Single vs. multi-frame header */
-        if (num_bytes < (OBDII_DLC - 1U)) { // -1 for length byte
+        if (num_bytes <= (OBDII_DLC - 1U)) { // -1 for length byte
             dev->msg[msg].frame[0].buf[cur_byte++] = num_bytes;           // LEN
             dev->msg[msg].frame[0].buf[cur_byte++] = dev->msg[msg].mode;  // MODE
         } else {
-            dev->msg[msg].frame[0].buf[cur_byte++] = (frame | 0x10);      // FF
+            dev->msg[msg].frame[0].buf[cur_byte++] = (frame | ISOTP_FIRST_FRAME);      // FF
             dev->msg[msg].frame[0].buf[cur_byte++] = num_bytes;           // LEN
             dev->msg[msg].frame[0].buf[cur_byte++] = dev->msg[msg].mode;  // MODE
         }
 
         /* Emit PIDs */
-        for (uint8_t i = 0; i < dev->num_pids; i++)
+        for (uint8_t i = 0; i < dev->msg[msg].num_pid_filters; i++)
         {
-            PTR_PID_DATA p = dev->stream[i];
-            if (!pid_is_enabled(p)) continue;
-            if (dev->msg[msg].mode != get_mode_by_uuid(p->pid_uuid)) continue;
-
+            PTR_PID_DATA p = dev->msg[msg].pid_filter[i];
             uint16_t pid_word = get_pid_by_uuid(p->pid_uuid);
 
             if ((pid_word >> 8) != 0) {
                 dev->msg[msg].frame[frame].buf[cur_byte] = (pid_word >> 8) & 0xFF;
-                next_byte(&frame, &cur_byte);
+                payload_bytes_written++;
+
+                if( payload_bytes_written < num_bytes )
+                    next_byte(&frame, &cur_byte);
             }
 
             if ((pid_word & 0xFF) != 0) {
                 dev->msg[msg].frame[frame].buf[cur_byte] = pid_word & 0xFF;
-                next_byte(&frame, &cur_byte);
+                payload_bytes_written++;
+
+                if( payload_bytes_written < num_bytes )
+                    next_byte(&frame, &cur_byte);
             }
 
             /* If we advanced to a new frame, patch its PCI byte to CF */
             if ((frame > 0) && (cur_byte <= 2)) {
-                dev->msg[msg].frame[frame].buf[0] = frame | 0x20;
+                dev->msg[msg].frame[frame].buf[0] = frame | ISOTP_CONSECUTIVE_FRAME;
             }
         }
 
@@ -524,6 +512,11 @@ static void clear_obdii_packets( POBDII_PACKET_MANAGER dev )
     {
         dev->msg[i].mode = MODE_NOT_CONFIGURED;
 
+        dev->msg[i].num_pid_filters = 0;
+
+        for( uint8_t pid = 0; pid < OBDII_MAX_PIDS; pid++ )
+            dev->msg[i].pid_filter[pid] = NULL;
+
         dev->msg[i].current_frame = 0;
 
         dev->msg[i].num_frames = 0;
@@ -533,12 +526,6 @@ static void clear_obdii_packets( POBDII_PACKET_MANAGER dev )
     }
 
     dev->num_msgs = 0;
-}
-
-static void flush_obdii_rx_buf( POBDII_PACKET_MANAGER dev )
-{
-    dev->rx_byte_count = 0;
-    memset(dev->rx_buf, 0, OBDII_RX_BUF_SIZE);
 }
 
 static void next_byte( uint8_t *frame, uint8_t *cur_byte )

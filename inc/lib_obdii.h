@@ -18,64 +18,25 @@ extern "C" {
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include "isotp.h"
 #include "lib_pid.h"
 
-#define OBDII_MAX_FRAMES 0x04
-#define OBDII_DLC        0x08
+#define OBDII_MAX_FRAMES ISOTP_MAX_FRAMES
+#define OBDII_DLC        ISOTP_DLC
 #define OBDII_MAX_PIDS   25
 #define OBDII_MAX_MSGS   8
-#define OBDII_RX_BUF_SIZE OBDII_MAX_FRAMES * OBDII_DLC
 
-#define ISO_15765_2_FRAME_TYPE_MASK            0xF0
+#ifndef OBDII_MODE1_PIDS_PER_REQUEST
+#define OBDII_MODE1_PIDS_PER_REQUEST  3
+#endif
 
-/**************************************************************
- * The single frame transferred contains the complete payload
- * of up to 7 bytes (normal addressing) or 6 bytes (extended
- * addressing).
- **************************************************************/
-#define ISO_15765_2_SINGLE_FRAME               0x00
+#ifndef OBDII_MODE22_PIDS_PER_REQUEST
+#define OBDII_MODE22_PIDS_PER_REQUEST 2
+#endif
 
-/**************************************************************
- * The first frame of a longer multi-frame message packet,
- * used when more than 6/7 bytes of data segmented must be
- * communicated. The first frame contains the length of the
- * full packet, along with the initial data.
- **************************************************************/
-#define ISO_15765_2_FIRST_FRAME_FRAME          0x10
-
-/**************************************************************
- * A frame containing subsequent data for a multi-frame packet.
- **************************************************************/
-#define ISO_15765_2_CONNSECUTIVE_FRAME         0x20
-
-/**************************************************************
- * The response from the receiver, acknowledging a First-frame
- * segment. It lays down the parameters for the transmission
- * of further consecutive frames.
- **************************************************************/
-#define ISO_15765_2_FLOW_CONTROL_FRAME         0x30
-
-#define ISO_15765_2_BYTE0_SIZE_MASK            0x0F
-#define ISO_15765_2_BYTE1_SIZE_MASK            0xFF
-
-/* A single frame will have the data length as the first byte */
-#define CAN_SF_DATA_LEN_POS            0x00
-
-/* A single frame will have the data length as the second byte */
-#define CAN_FF_DATA_LEN_POS            0x01
-
-/* Supporting bytes before data: length and mode */
-#define CAN_SINGLE_FRAME_SUPPORTING_BYTES          0x02
-/* Supporting bytes before data: frame, length and mode */
-#define CAN_FIRST_FRAME_SUPPORTING_BYTES           0x03
-/* Supporting bytes before data: frame */
-#define CAN_CONNSECUTIVE_FRAME_SUPPORTING_BYTES    0x01
-
-#define CAN_FLOW_CONTROL_FRAME_SUPPORTING_BYTES    0x01
-
-#define CAN_SINGLE_FRAME_MODE_POS                  0x01
-
-#define MULTI_FRAME_MODE_POS                       0x02
+#ifndef OBDII_DEFAULT_PIDS_PER_REQUEST
+#define OBDII_DEFAULT_PIDS_PER_REQUEST OBDII_MAX_PIDS
+#endif
 
 typedef uint8_t (*TRANSMIT_OBDII_DATA)(uint8_t *data, uint8_t len);
 
@@ -142,6 +103,10 @@ typedef struct _obdii_msg {
 
 	uint8_t mode;
 
+    PTR_PID_DATA pid_filter[OBDII_MAX_PIDS];
+
+    uint8_t num_pid_filters;
+
 	OBDII_FRAME frame[OBDII_MAX_FRAMES];
 
     uint8_t num_frames;
@@ -185,11 +150,7 @@ typedef struct _obdii_packet_manager {
 
     PTR_PID_DATA stream[OBDII_MAX_PIDS];
 
-    uint8_t rx_buf[OBDII_RX_BUF_SIZE];
-
-    int16_t rx_remaining_bytes;
-
-    uint8_t rx_byte_count;
+    ISOTP_LINK isotp;
 
     OBDII_DIAGNOSTICS diagnostic;
 
@@ -253,8 +214,6 @@ OBDII_PACKET_MANAGER_STATUS OBDII_Service( POBDII_PACKET_MANAGER dev );
  *
  * @see ISO 15765-2 (ISO-TP), Flow Control (FC) frame format.
  *----------------------------------------------------------------------------------*/
-uint8_t is_flow_control_frame( uint8_t* packet_data );
-
 /**************************************************************
  * Re-enable communication, this only needs to be called if the
  * communication has been paused.
