@@ -11,7 +11,7 @@
  *-------------------------------------------------------------------*/
 
 #include "lib_obdii.h"
-#include "lib_obdii_default_definitions.h"
+#include "lib_obdii_default_json.h"
 #include "cjson_shared.h"
 #include <stdlib.h>
 
@@ -290,19 +290,15 @@ void OBDII_Pause( POBDII_PACKET_MANAGER dev )
 
 void OBDII_Initialize( POBDII_PACKET_MANAGER dev )
 {
-    uint16_t default_count = DEFAULT_OBDII_DEFINITIONS_COUNT;
-
     dev->status_flags = 0;
     clear_obdii_packets(dev);
     clear_diagnostics(dev);
     clear_pid_entries(dev);
     memset(dev->definition, 0, sizeof(dev->definition));
-    if( default_count > OBDII_MAX_DEFINITIONS )
-        default_count = OBDII_MAX_DEFINITIONS;
-    memcpy(dev->definition, default_obdii_definitions, (default_count * sizeof(dev->definition[0])));
-    dev->num_definitions = default_count;
+    dev->num_definitions = 0;
     ISOTP_Initialize(&dev->isotp);
     dev->obdii_time = obdii_tick;
+    (void)OBDII_Load_JSON(dev, default_obdii_json);
 }
 
 OBDII_JSON_STATUS OBDII_Load_JSON( POBDII_PACKET_MANAGER dev, const char *json )
@@ -361,6 +357,9 @@ OBDII_JSON_STATUS OBDII_Load_JSON( POBDII_PACKET_MANAGER dev, const char *json )
     memset(dev->definition, 0, sizeof(dev->definition));
     memcpy(dev->definition, loaded_definitions, (loaded_count * sizeof(dev->definition[0])));
     dev->num_definitions = loaded_count;
+
+    cJSON_ArrayForEach(entry, root)
+        (void)pid_metadata_register_json(entry, 0U);
 
     cJSON_Delete(root);
     cjson_shared_release();
