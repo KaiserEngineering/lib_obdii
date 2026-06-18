@@ -1,0 +1,813 @@
+﻿[
+    {
+        "label":  "Cmd AFR",
+        "desc":  "Commanded Air-Fuel Ratio",
+        "id":  "7E0",
+        "mode":  "MODE1",
+        "pid":  "44",
+        "dataLen":  2,
+        "units":  [
+                      "RATIO"
+                  ],
+        "min":  [
+                    0
+                ],
+        "max":  [
+                    29.4
+                ],
+        "decimals":  [
+                         2
+                     ],
+        "formula":  "29D4_OVER_65536_TIMES_256_A_PLUS_B"
+    },
+    {
+        "label":  "Load",
+        "desc":  "Calc engine load",
+        "id":  "7E0",
+        "mode":  "MODE1",
+        "pid":  "04",
+        "dataLen":  1,
+        "units":  [
+                      "PERCENT"
+                  ],
+        "min":  [
+                    0
+                ],
+        "max":  [
+                    100
+                ],
+        "decimals":  [
+                         1
+                     ],
+        "formula":  "100_TIMES_A_OVER_255"
+    },
+    {
+        "label":  "ECT",
+        "desc":  "Engine coolant temp",
+        "id":  "7E0",
+        "mode":  "MODE1",
+        "pid":  "05",
+        "dataLen":  1,
+        "units":  [
+                      "CELSIUS",
+                      "FAHRENHEIT"
+                  ],
+        "min":  [
+                    -40,
+                    -40
+                ],
+        "max":  [
+                    215,
+                    400
+                ],
+        "decimals":  [
+                         0,
+                         1
+                     ],
+        "formula":  "A_MINUS_40"
+    },
+    {
+        "label":  "STFT1",
+        "desc":  "Short term fuel trim Bank 1",
+        "id":  "7E0",
+        "mode":  "MODE1",
+        "pid":  "06",
+        "dataLen":  1,
+        "units":  [
+                      "PERCENT"
+                  ],
+        "min":  [
+                    -100
+                ],
+        "max":  [
+                    99.2
+                ],
+        "decimals":  [
+                         1
+                     ],
+        "formula":  "100_OVER_128_TIMES_A_MINUS_100"
+    },
+    {
+        "label":  "LTFT1",
+        "desc":  "Long term fuel trim Bank 1",
+        "id":  "7E0",
+        "mode":  "MODE1",
+        "pid":  "07",
+        "dataLen":  1,
+        "units":  [
+                      "PERCENT"
+                  ],
+        "min":  [
+                    -100
+                ],
+        "max":  [
+                    99.2
+                ],
+        "decimals":  [
+                         1
+                     ],
+        "formula":  "100_OVER_128_TIMES_A_MINUS_100"
+    },
+    {
+        "label":  "STFT2",
+        "desc":  "Short term fuel trim Bank 2",
+        "id":  "7E0",
+        "mode":  "MODE1",
+        "pid":  "08",
+        "dataLen":  1,
+        "units":  [
+                      "PERCENT"
+                  ],
+        "min":  [
+                    -100
+                ],
+        "max":  [
+                    99.2
+                ],
+        "decimals":  [
+                         0
+                     ],
+        "formula":  "100_OVER_128_TIMES_A_MINUS_100"
+    },
+    {
+        "label":  "LTFT2",
+        "desc":  "Long term fuel trim Bank 2",
+        "id":  "7E0",
+        "mode":  "MODE1",
+        "pid":  "09",
+        "dataLen":  1,
+        "units":  [
+                      "PERCENT"
+                  ],
+        "min":  [
+                    -100
+                ],
+        "max":  [
+                    99.2
+                ],
+        "decimals":  [
+                         0
+                     ],
+        "formula":  "100_OVER_128_TIMES_A_MINUS_100"
+    },
+    {
+        "label":  "Fuel",
+        "desc":  "Fuel Pressure",
+        "id":  "7E0",
+        "mode":  "MODE1",
+        "pid":  "0A",
+        "dataLen":  1,
+        "units":  [
+                      "KPA",
+                      "PSI",
+                      "BAR"
+                  ],
+        "min":  [
+                    0,
+                    0,
+                    0
+                ],
+        "max":  [
+                    765,
+                    110,
+                    7.65
+                ],
+        "decimals":  [
+                         0,
+                         1,
+                         2
+                     ],
+        "formula":  "A_TIMES_3"
+    },
+    {
+        "label":  "MAP",
+        "desc":  "Manifold Abs Press",
+        "id":  "7E0",
+        "mode":  "MODE1",
+        "pid":  "0B",
+        "dataLen":  1,
+        "units":  [
+                      "KPA",
+                      "PSI",
+                      "BAR"
+                  ],
+        "min":  [
+                    0,
+                    0,
+                    0
+                ],
+        "max":  [
+                    255,
+                    36,
+                    2.55
+                ],
+        "decimals":  [
+                         0,
+                         1,
+                         2
+                     ],
+        "formula":  "A"
+    },
+    {
+        "label":  "RPM",
+        "desc":  "Engine speed",
+        "id":  "7E0",
+        "mode":  "MODE1",
+        "pid":  "0C",
+        "dataLen":  2,
+        "units":  [
+                      "RPM"
+                  ],
+        "min":  [
+                    0
+                ],
+        "max":  [
+                    8000
+                ],
+        "decimals":  [
+                         0
+                     ],
+        "formula":  "256_TIMES_A_PLUS_B_OVER_4"
+    },
+    {
+        "label":  "Speed",
+        "desc":  "Vehicle Speed",
+        "id":  "7E0",
+        "mode":  "MODE1",
+        "pid":  "0D",
+        "dataLen":  1,
+        "units":  [
+                      "KMH",
+                      "MPH"
+                  ],
+        "min":  [
+                    0,
+                    0
+                ],
+        "max":  [
+                    270,
+                    180
+                ],
+        "decimals":  [
+                         0,
+                         0
+                     ],
+        "formula":  "A"
+    },
+    {
+        "label":  "Timing",
+        "desc":  "Timing Advance",
+        "id":  "7E0",
+        "mode":  "MODE1",
+        "pid":  "0E",
+        "dataLen":  1,
+        "units":  [
+                      "DEGREES"
+                  ],
+        "min":  [
+                    -64
+                ],
+        "max":  [
+                    63.5
+                ],
+        "decimals":  [
+                         1
+                     ],
+        "formula":  "A_OVER_2_MINUS_64"
+    },
+    {
+        "label":  "IAT",
+        "desc":  "Intake Air Temp",
+        "id":  "7E0",
+        "mode":  "MODE1",
+        "pid":  "0F",
+        "dataLen":  1,
+        "units":  [
+                      "CELSIUS",
+                      "FAHRENHEIT"
+                  ],
+        "min":  [
+                    -40,
+                    -40
+                ],
+        "max":  [
+                    200,
+                    400
+                ],
+        "decimals":  [
+                         0,
+                         1
+                     ],
+        "formula":  "A_MINUS_40"
+    },
+    {
+        "label":  "MAF",
+        "desc":  "Mass Air Flow",
+        "id":  "7E0",
+        "mode":  "MODE1",
+        "pid":  "10",
+        "dataLen":  1,
+        "units":  [
+                      "GRAMSEC"
+                  ],
+        "min":  [
+                    0
+                ],
+        "max":  [
+                    655.35
+                ],
+        "decimals":  [
+                         0
+                     ],
+        "formula":  "256_TIMES_A_PLUS_B_OVER_100"
+    },
+    {
+        "label":  "Throttle",
+        "desc":  "Throttle Position",
+        "id":  "7E0",
+        "mode":  "MODE1",
+        "pid":  "11",
+        "dataLen":  1,
+        "units":  [
+                      "PERCENT"
+                  ],
+        "min":  [
+                    0
+                ],
+        "max":  [
+                    100
+                ],
+        "decimals":  [
+                         1
+                     ],
+        "formula":  "100_TIMES_A_OVER_255"
+    },
+    {
+        "label":  "O2",
+        "desc":  "O2 Sensor 2 Volts",
+        "id":  "7E0",
+        "mode":  "MODE1",
+        "pid":  "15",
+        "dataLen":  2,
+        "units":  [
+                      "VOLTS"
+                  ],
+        "min":  [
+                    0
+                ],
+        "max":  [
+                    1.275
+                ],
+        "decimals":  [
+                         2
+                     ],
+        "formula":  "A_OVER_200"
+    },
+    {
+        "label":  "Fuel",
+        "desc":  "Fuel Rail Pressure",
+        "id":  "7E0",
+        "mode":  "MODE1",
+        "pid":  "22",
+        "dataLen":  2,
+        "units":  [
+                      "KPA",
+                      "PSI",
+                      "BAR"
+                  ],
+        "min":  [
+                    0,
+                    0,
+                    0
+                ],
+        "max":  [
+                    5177,
+                    750,
+                    51.77
+                ],
+        "decimals":  [
+                         0,
+                         0,
+                         2
+                     ],
+        "formula":  "ZERO_DOT_079_TIMES_256_TIMES_A_PLUS_B"
+    },
+    {
+        "label":  "Baro",
+        "desc":  "Barometric Pressure",
+        "id":  "7E0",
+        "mode":  "MODE1",
+        "pid":  "33",
+        "dataLen":  1,
+        "units":  [
+                      "KPA",
+                      "PSI",
+                      "BAR"
+                  ],
+        "min":  [
+                    0,
+                    0,
+                    0
+                ],
+        "max":  [
+                    255,
+                    36,
+                    2.55
+                ],
+        "decimals":  [
+                         0,
+                         1,
+                         2
+                     ],
+        "formula":  "A"
+    },
+    {
+        "label":  "AFR",
+        "desc":  "Air-Fuel Ratio (Oxygen Sensor 1)",
+        "id":  "7E0",
+        "mode":  "MODE1",
+        "pid":  "34",
+        "dataLen":  4,
+        "units":  [
+                      "RATIO"
+                  ],
+        "min":  [
+                    0
+                ],
+        "max":  [
+                    29.4
+                ],
+        "decimals":  [
+                         2
+                     ],
+        "formula":  "29D4_OVER_65536_TIMES_256_A_PLUS_B"
+    },
+    {
+        "label":  "APP",
+        "desc":  "Accel Pedal Pos",
+        "id":  "7E0",
+        "mode":  "MODE1",
+        "pid":  "5A",
+        "dataLen":  1,
+        "units":  [
+                      "PERCENT"
+                  ],
+        "min":  [
+                    0
+                ],
+        "max":  [
+                    100
+                ],
+        "decimals":  [
+                         0
+                     ],
+        "formula":  "100_TIMES_A_OVER_255"
+    },
+    {
+        "label":  "Battery",
+        "desc":  "Battery Voltage",
+        "id":  "7E0",
+        "mode":  "MODE1",
+        "pid":  "42",
+        "dataLen":  2,
+        "units":  [
+                      "VOLTS"
+                  ],
+        "min":  [
+                    0
+                ],
+        "max":  [
+                    24
+                ],
+        "decimals":  [
+                         1
+                     ],
+        "formula":  "256_TIMES_A_PLUS_B_OVER_1000"
+    },
+    {
+        "label":  "Oil Temp",
+        "desc":  "Oil Temp",
+        "id":  "7E0",
+        "mode":  "MODE1",
+        "pid":  "5C",
+        "dataLen":  1,
+        "units":  [
+                      "CELSIUS",
+                      "FAHRENHEIT"
+                  ],
+        "min":  [
+                    -40,
+                    -40
+                ],
+        "max":  [
+                    200,
+                    400
+                ],
+        "decimals":  [
+                         0,
+                         1
+                     ],
+        "formula":  "A_MINUS_40"
+    },
+    {
+        "label":  "Boost",
+        "desc":  "Boost",
+        "id":  "7E0",
+        "mode":  "MODE1",
+        "pid":  "6F",
+        "dataLen":  1,
+        "units":  [
+                      "KPA",
+                      "PSI",
+                      "BAR"
+                  ],
+        "min":  [
+                    0,
+                    0,
+                    0
+                ],
+        "max":  [
+                    255,
+                    36,
+                    2.55
+                ],
+        "decimals":  [
+                         1,
+                         2,
+                         2
+                     ],
+        "formula":  "UNDEFINED"
+    },
+    {
+        "label":  "MAP",
+        "desc":  "Manifold Abs Press Sensor 1 Volt",
+        "id":  "7E0",
+        "mode":  "MODE22",
+        "pid":  "0301",
+        "dataLen":  2,
+        "units":  [
+                      "VOLTS"
+                  ],
+        "min":  [
+                    0
+                ],
+        "max":  [
+                    5
+                ],
+        "decimals":  [
+                         2
+                     ],
+        "formula":  "256_TIMES_A_SIGNED_PLUS_B_OVER_1024"
+    },
+    {
+        "label":  "LPFP DC",
+        "desc":  "LP Fuel Duty Cycle",
+        "id":  "7E0",
+        "mode":  "MODE22",
+        "pid":  "0307",
+        "dataLen":  2,
+        "units":  [
+                      "PERCENT"
+                  ],
+        "min":  [
+                    0
+                ],
+        "max":  [
+                    100
+                ],
+        "decimals":  [
+                         0
+                     ],
+        "formula":  "256_TIMES_A_PLUS_B_OVER_327_DOT_68"
+    },
+    {
+        "label":  "IGN 1",
+        "desc":  "Ignition Correction Cylinder 1",
+        "id":  "7E0",
+        "mode":  "MODE22",
+        "pid":  "03EC",
+        "dataLen":  2,
+        "units":  [
+                      "DEGREES"
+                  ],
+        "min":  [
+                    -16
+                ],
+        "max":  [
+                    16
+                ],
+        "decimals":  [
+                         2
+                     ],
+        "formula":  "256_TIMES_A_SIGNED_PLUS_B_OVER_NEG_512"
+    },
+    {
+        "label":  "VCT Int DC",
+        "desc":  "VCT Intake Cam Solenoid Duty Cycle",
+        "id":  "7E0",
+        "mode":  "MODE22",
+        "pid":  "0316",
+        "dataLen":  2,
+        "units":  [
+                      "PERCENT"
+                  ],
+        "min":  [
+                    0
+                ],
+        "max":  [
+                    100
+                ],
+        "decimals":  [
+                         1
+                     ],
+        "formula":  "256_TIMES_A_PLUS_B_OVER_327_DOT_68"
+    },
+    {
+        "label":  "VCT Exh DC",
+        "desc":  "VCT Exhaust Cam Solenoid Duty Cycle",
+        "id":  "7E0",
+        "mode":  "MODE22",
+        "pid":  "0317",
+        "dataLen":  2,
+        "units":  [
+                      "PERCENT"
+                  ],
+        "min":  [
+                    0
+                ],
+        "max":  [
+                    100
+                ],
+        "decimals":  [
+                         1
+                     ],
+        "formula":  "256_TIMES_A_PLUS_B_OVER_327_DOT_68"
+    },
+    {
+        "label":  "IAT",
+        "desc":  "Intake Air Temp",
+        "id":  "7E0",
+        "mode":  "MODE22",
+        "pid":  "F40F",
+        "dataLen":  1,
+        "units":  [
+                      "CELSIUS",
+                      "FAHRENHEIT"
+                  ],
+        "min":  [
+                    -40,
+                    -40
+                ],
+        "max":  [
+                    200,
+                    400
+                ],
+        "decimals":  [
+                         0,
+                         1
+                     ],
+        "formula":  "A_MINUS_40"
+    },
+    {
+        "label":  "CAT",
+        "desc":  "Charge Air Temp [ST]",
+        "id":  "7E0",
+        "mode":  "MODE22",
+        "pid":  "0461",
+        "dataLen":  2,
+        "units":  [
+                      "CELSIUS",
+                      "FAHRENHEIT"
+                  ],
+        "min":  [
+                    -40,
+                    -40
+                ],
+        "max":  [
+                    200,
+                    400
+                ],
+        "decimals":  [
+                         1,
+                         1
+                     ],
+        "formula":  "256_TIMES_A_SIGNED_PLUS_B_OVER_64"
+    },
+    {
+        "label":  "MCT",
+        "desc":  "Manifold Charge Temp [RS]",
+        "id":  "7E0",
+        "mode":  "MODE22",
+        "pid":  "03CA",
+        "dataLen":  1,
+        "units":  [
+                      "CELSIUS",
+                      "FAHRENHEIT"
+                  ],
+        "min":  [
+                    -40,
+                    -40
+                ],
+        "max":  [
+                    200,
+                    400
+                ],
+        "decimals":  [
+                         0,
+                         1
+                     ],
+        "formula":  "A_MINUS_40"
+    },
+    {
+        "label":  "OAR",
+        "desc":  "Octane Adjust Ratio",
+        "id":  "7E0",
+        "mode":  "MODE22",
+        "pid":  "03E8",
+        "dataLen":  2,
+        "units":  [
+                      "RATIO"
+                  ],
+        "min":  [
+                    -1
+                ],
+        "max":  [
+                    1
+                ],
+        "decimals":  [
+                         2
+                     ],
+        "formula":  "256_TIMES_A_SIGNED_PLUS_B_OVER_16384"
+    },
+    {
+        "label":  "AAT",
+        "desc":  "Ambient Air Temp",
+        "id":  "7E0",
+        "mode":  "MODE22",
+        "pid":  "057D",
+        "dataLen":  1,
+        "units":  [
+                      "CELSIUS",
+                      "FAHRENHEIT"
+                  ],
+        "min":  [
+                    -40,
+                    -40
+                ],
+        "max":  [
+                    200,
+                    400
+                ],
+        "decimals":  [
+                         0,
+                         1
+                     ],
+        "formula":  "A_OVER_2_MINUS_40"
+    },
+    {
+        "label":  "Load",
+        "desc":  "Engine Load",
+        "id":  "7E0",
+        "mode":  "MODE22",
+        "pid":  "F404",
+        "dataLen":  1,
+        "units":  [
+                      "PERCENT"
+                  ],
+        "min":  [
+                    0
+                ],
+        "max":  [
+                    100
+                ],
+        "decimals":  [
+                         1
+                     ],
+        "formula":  "100_TIMES_A_OVER_255"
+    },
+    {
+        "label":  "Cat Temp",
+        "desc":  "Catalytic Temperature",
+        "id":  "7E0",
+        "mode":  "MODE22",
+        "pid":  "F43C",
+        "dataLen":  2,
+        "units":  [
+                      "CELSIUS",
+                      "FAHRENHEIT"
+                  ],
+        "min":  [
+                    0,
+                    0
+                ],
+        "max":  [
+                    1000,
+                    2000
+                ],
+        "decimals":  [
+                         0,
+                         0
+                     ],
+        "formula":  "256_TIMES_A_PLUS_B_OVER_10_MINUS_40"
+    }
+]
