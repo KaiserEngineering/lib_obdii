@@ -364,19 +364,6 @@
         "formula": "256_TIMES_A_PLUS_B_OVER_327_DOT_68"
     },
     {
-        "label": "IAT",
-        "desc": "Intake Air Temp",
-        "id": "7E0",
-        "mode": "MODE22",
-        "pid": "F40F",
-        "dataLen": 1,
-        "units": ["CELSIUS", "FAHRENHEIT"],
-        "min": [-40, -40],
-        "max": [200, 400],
-        "decimals": [0, 1],
-        "formula": "A_MINUS_40"
-    },
-    {
         "label": "CAT",
         "desc": "Charge Air Temp [ST]",
         "id": "7E0",
